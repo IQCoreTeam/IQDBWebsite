@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+
+
+input::placeholder{
+    opacity: 0.5;
+    color: #008800;
+}
+
+body {
+
+}
