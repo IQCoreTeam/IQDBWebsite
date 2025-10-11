@@ -29,6 +29,7 @@ export type UseOnchainReaderState = {
   loading: boolean
   error: string | null
   data: ReaderResult | null
+  idl: Idl | null
   refresh: () => Promise<void>
 }
 
@@ -76,6 +77,7 @@ export function useOnchainReader(opts: UseOnchainReaderOptions): UseOnchainReade
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<ReaderResult | null>(null)
+  const [idl, setIdl] = useState<Idl | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const resolvedEndpoint = useMemo(() => resolveEndpoint(network, endpoint), [network, endpoint])
@@ -92,11 +94,12 @@ export function useOnchainReader(opts: UseOnchainReaderOptions): UseOnchainReade
     abortRef.current = controller
     try {
       // Fetch IDL
-      const idl = await retryAsync<Idl>(async () => {
+      const loadedIdl = await retryAsync<Idl>(async () => {
         const res = await fetch(idlUrl, { signal: controller.signal })
         if (!res.ok) throw new Error(`Failed to fetch IDL: ${res.status}`)
         return (await res.json()) as Idl
       }, retry.attempts, retry.delayMs)
+      setIdl(loadedIdl)
 
       const connection = new Connection(resolvedEndpoint, 'confirmed')
       // Call reader
@@ -104,7 +107,8 @@ export function useOnchainReader(opts: UseOnchainReaderOptions): UseOnchainReade
         connection,
         endpoint: resolvedEndpoint,
         userPublicKey,
-          programId: idl.address,
+        programId: (loadedIdl as any).address,
+        idl: loadedIdl,
         maxTx,
         perTableLimit,
       })
@@ -126,5 +130,5 @@ export function useOnchainReader(opts: UseOnchainReaderOptions): UseOnchainReade
     }
   }, [load, auto])
 
-  return { loading, error, data, refresh: load }
+  return { loading, error, data, idl, refresh: load }
 }

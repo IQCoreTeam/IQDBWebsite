@@ -15,12 +15,12 @@ import {
   TabBody,
   GroupBox,
   Button,
-  NumberInput,
 } from 'react95'
 import WalletButton from '@/components/wallet/WalletButton'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useOnchainWriter } from '@/hooks/useOnchainWriter'
 import { useOnchainReader } from '@/hooks/useOnchainReader'
+import { readRowsByTable } from '@/lib/onchainDB'
 import DraggableWindow from "@/components/ui/DraggableWindow";
 
 const Container = styled.div`
@@ -51,16 +51,7 @@ const FieldRow = styled.div`
 
 
 
-const TextArea = styled.textarea`
-  width: 100%;
-  min-height: 120px;
-  background: #001100;
-  color: #00ff00;
-  border: 1px solid #00aa00;
-  padding: 8px;
-  font-size: 12px;
-  resize: vertical;
-`
+
 
 const Row = styled.div`
   display: flex;
@@ -103,7 +94,12 @@ export default function Home() {
   const [tableName, setTableName] = useState('')
   const [columns, setColumns] = useState('')
   const [rowJson, setRowJson] = useState(``)
-  const [amount, setAmount] = useState<number>(1) // example numeric input with NumberInput
+
+  // Reader navigation states
+  const [viewStep, setViewStep] = useState<'tables' | 'rows'>('tables')
+  const [selectedTable, setSelectedTable] = useState<string | null>(null)
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
+  const [rowsForSelected, setRowsForSelected] = useState<any[]>([])
 
   // Auto-load IDL when wallet connects
   useEffect(() => {
@@ -115,13 +111,20 @@ export default function Home() {
   const canUseWriter = useMemo(() => wallet.connected && ready, [wallet.connected, ready])
 
   // Reader
-  const { data: readData, error: readError, loading: reading, refresh } = useOnchainReader({
+  const { data: readData, error: readError, loading: reading, idl: readerIdl, refresh } = useOnchainReader({
     userPublicKey: userPk,
     network: 'devnet',
     idlUrl: '/idl/iq_database.json',
     maxTx: 50,
     auto: wallet.connected, // auto fetch when connected
   })
+
+  // 쓰기 성공 시 자동으로 새로고침
+  useEffect(() => {
+    if (lastSignature) {
+      refresh().catch(() => {})
+    }
+  }, [lastSignature, refresh])
 
   // Handlers
   // Tabs onChange follows React95 story signature (value: number, event)
@@ -153,8 +156,6 @@ export default function Home() {
     } catch {
       payload = { value: rowJson }
     }
-    // Optional: attach amount for demo
-    if (amount != null) payload.amount = amount
     await writeRow(tableName, payload)
   }
 
@@ -172,7 +173,7 @@ export default function Home() {
 
       {/* Main window with tabs */}
       <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-        <DraggableWindow title="[ iqdb_console.exe ]">
+        <DraggableWindow title="[ iqdb_console.exe ]" width={1024}>
           <WindowContent>
             <Tabs value={activeTab} onChange={onTabChange}>
               <Tab value={0}>write_data</Tab>
@@ -184,7 +185,7 @@ export default function Home() {
                 <div>
                   <GroupBox label="Write row">
                     <FieldRow>
-                      <Small style={{ minWidth: 100 }}>Table name</Small>
+                      <p style={{ minWidth: 100 }}>Table name</p>
                       <TextInput
                         placeholder="table name"
                         value={tableName}
@@ -193,7 +194,7 @@ export default function Home() {
                     </FieldRow>
 
                     <FieldRow>
-                      <Small style={{ minWidth: 100 }}>Columns (comma)</Small>
+                      <p style={{ minWidth: 100 }}>Columns (comma)</p>
                       <TextInput
                         placeholder="col1,col2"
                         value={columns}
@@ -201,18 +202,9 @@ export default function Home() {
                       />
                     </FieldRow>
 
-                    <FieldRow>
-                      <Small style={{ minWidth: 100 }}>Amount (demo)</Small>
-                      <NumberInput
-                        min={0}
-                        defaultValue={amount}
-                        onChange={(val: number) => setAmount(val)}
-                        width="120px"
-                      />
-                    </FieldRow>
 
                     <div style={{ marginTop: 8, marginBottom: 8 }}>
-                      <Small>Row JSON</Small>
+                      <p>Row JSON</p>
                       <TextInput
                           multiline rows={4}
                         placeholder='{"name":"cat_meme","session_pda":"xxxxx"}'
@@ -235,7 +227,7 @@ export default function Home() {
 
                     <div style={{ marginTop: 8 }}>
                       {writeError ? <p style={{ color: '#ff5555' }}>⚠ {writeError}</p> : null}
-                      {lastSignature ? <p>Sig: {lastSignature}</p> : null}
+                      {lastSignature ? <p>Sig: {lastSignature.slice(0,30)+"..."}</p> : null}
                       {!wallet.connected ? <p>Connect your wallet to enable writer.</p> : null}
                       {wallet.connected && !ready ? <p>Loading IDL...</p> : null}
                     </div>
@@ -247,7 +239,16 @@ export default function Home() {
                 <div>
                   <GroupBox label="Read data">
                     <Row>
-                      <Button onClick={refresh} disabled={!wallet.connected || reading}>
+                      <Button
+                        onClick={async () => {
+                          await refresh()
+                          setViewStep('tables')
+                          setSelectedTable(null)
+                          setSelectedRowIndex(null)
+                          setRowsForSelected([])
+                        }}
+                        disabled={!wallet.connected || reading}
+                      >
                         Refresh
                       </Button>
                     </Row>
@@ -258,48 +259,163 @@ export default function Home() {
                       {!wallet.connected ? <Small>Connect your wallet to read data.</Small> : null}
                     </div>
 
+                    {/* Meta 영역은 숨김 처리 */}
+                    {/*
                     <ScrollView style={{ marginTop: 12 }}>
                       <p>Meta</p>
-                      <TextInput  multiline variant='flat'
-                              rows={3} disabled>
-                        {readData
-                          ? JSON.stringify(readData.meta, null, 2)
-                          : reading
-                          ? 'Loading...'
-                          : '{}'}
-                      </TextInput>
+                      <TextInput
+                        multiline
+                        variant="flat"
+                        rows={3}
+                        disabled
+                        value={
+                          readData
+                            ? JSON.stringify(readData.meta, null, 2)
+                            : '{}'
+                        }
+                      />
                     </ScrollView>
+                    */}
 
-                    <ScrollView style={{ marginTop: 12 }}>
-                      <p>Tables</p>
-                        <TextInput  multiline variant='flat'
-                                    rows={4} disabled>
-                            {readData
-                          ? JSON.stringify(
-                              {
-                                tableNames: readData.tableNames,
-                                tables: readData.tables,
-                              },
-                              null,
-                              2
-                            )
-                          : reading
-                          ? 'Loading...'
-                          : '{}'}
-                      </TextInput>
-                    </ScrollView>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 12, minHeight: 280 }}>
+                      {/* Left pane: tables list -> rows list */}
+                      <div style={{ flex: 1, minWidth: 240 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <p style={{ margin: 0 }}>
+                            {viewStep === 'tables' ? 'Tables' : selectedTable ? `Rows: ${selectedTable}` : 'Rows'}
+                          </p>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {viewStep === 'rows' && (
+                              <>
+                                {selectedRowIndex != null ? (
+                                  <Button size="sm" onClick={() => setSelectedRowIndex(null)}>
+                                    Back to rows
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setViewStep('tables')
+                                    setSelectedTable(null)
+                                    setSelectedRowIndex(null)
+                                    setRowsForSelected([])
+                                  }}
+                                >
+                                  Back to tables
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
 
-                    <ScrollView style={{ marginTop: 12 }}>
-                      <p>Rows</p>
-                        <TextInput  multiline variant='flat'
-                                    rows={1} disabled>
-                            {readData
-                          ? JSON.stringify(readData.rowsByTable, null, 2)
-                          : reading
-                          ? 'Loading...'
-                          : '{}'}
-                      </TextInput>
-                    </ScrollView>
+                        <ScrollView style={{ marginTop: 8, height: 280 }}>
+                          {/* Step: tables list */}
+                          {viewStep === 'tables' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {reading ? (
+                                <Small>Loading...</Small>
+                              ) : (readData?.tableNames?.length || 0) === 0 ? (
+                                <Small>No tables found.</Small>
+                              ) : (
+                                readData!.tableNames.map((name) => (
+                                  <Button
+                                    key={name}
+                                    onClick={async () => {
+                                      if (!readerIdl || !userPk) return
+                                      setSelectedTable(name)
+                                      setSelectedRowIndex(null)
+                                      setViewStep('rows')
+                                      const endpoint = readData?.meta?.endpoint
+                                      const rows = await readRowsByTable({
+                                        userPublicKey: userPk,
+                                        idl: readerIdl,
+                                        endpoint,
+                                        programId: (readerIdl as any).address,
+                                        tableName: name,
+                                        maxTx: 100,
+                                      })
+                                      setRowsForSelected(rows)
+                                    }}
+                                  >
+                                    {name}
+                                  </Button>
+                                ))
+                              )}
+                            </div>
+                          )}
+
+                          {/* Step: rows list for selected table */}
+                          {viewStep === 'rows' && selectedTable && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {rowsForSelected.length === 0 ? (
+                                <Small>No rows in {selectedTable}.</Small>
+                              ) : (
+                                rowsForSelected.map((row, idx) => {
+                                  const selected = selectedRowIndex === idx
+                                  const short = (() => {
+                                    try {
+                                      if (!row || typeof row !== 'object') return String(row ?? '')
+                                      if ('name' in row && typeof (row as any).name === 'string') return (row as any).name
+                                      const s = JSON.stringify(row)
+                                      return s.length > 60 ? s.slice(0, 57) + '...' : s
+                                    } catch {
+                                      return 'row'
+                                    }
+                                  })()
+                                  return (
+                                    <Button
+                                      key={idx}
+                                      onClick={() => setSelectedRowIndex(idx)}
+                                      style={selected ? { background: '#003300', color: '#00ff00' } : undefined}
+                                    >
+                                      {`Row #${idx + 1} — ${short}`}
+                                    </Button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          )}
+                        </ScrollView>
+                      </div>
+
+                      {/* Right pane: details of selected row with columns meta */}
+                      <div style={{ flex: 1.2, minWidth: 320 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <p style={{ margin: 0 }}>Details</p>
+                          {selectedTable && (readData as any)?.tables?.[selectedTable] ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <Small>columns:</Small>
+                              {(readData as any).tables[selectedTable].columns.length > 0 ? (
+                                (readData as any).tables[selectedTable].columns.map((c: string, i: number) => (
+                                  <span
+                                    key={`${c}-${i}`}
+                                    style={{ border: '1px solid #004400', padding: '2px 6px', borderRadius: 4, color: '#00ff00' }}
+                                  >
+                                    {c}
+                                  </span>
+                                ))
+                              ) : (
+                                <Small>none</Small>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <ScrollView style={{ marginTop: 8, height: 280 }}>
+                          <TextInput
+                            multiline
+                            variant="flat"
+                            rows={14}
+                            disabled
+                            value={
+                              selectedTable != null && selectedRowIndex != null
+                                ? JSON.stringify(rowsForSelected[selectedRowIndex] ?? {}, null, 2)
+                                : 'Select a row from the left.'
+                            }
+                          />
+                        </ScrollView>
+                      </div>
+                    </div>
                   </GroupBox>
                 </div>
               )}

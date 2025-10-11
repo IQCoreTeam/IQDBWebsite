@@ -10,7 +10,7 @@ export { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable }
 
 // Web reader API (UI-friendly)
 export type { ReaderParams, ReaderResult, Row } from './web/reader'
-export { readRecentRows } from './web/reader'
+export { readRecentRows, readRowsByTable } from './web/reader'
 
 // Web writer API (wallet-adapter + Anchor Program)
 export type { EditMode, WriterCtx } from './web/writer'

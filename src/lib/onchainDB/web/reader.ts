@@ -19,6 +19,8 @@ export type ReaderParams = {
   userPublicKey: string
   // Optional: program id override (base58)
   programId?: string
+  // Optional IDL to decode accounts/instructions on web
+  idl?: Idl
   // Optional limits for scanning
   maxTx?: number
   perTableLimit?: number
@@ -34,6 +36,8 @@ export type ReaderResult = {
   }
   // Table names if available
   tableNames: string[]
+  // Tables meta (columns and PDA strings)
+  tables: Record<string, { columns: string[]; tablePda: string; instPda: string | null }>
   // Rows keyed by table
   rowsByTable: Record<string, Row[]>
 }
@@ -45,14 +49,7 @@ export type ReaderResult = {
  * - Implementation TODO: decode program-specific instructions using IDL (client-provided)
  *   and scan TxRef PDA signatures similar to core/reader logic.
  */
-export async function readRecentRows(params: ReaderParams): Promise<ReaderResult> {
-  const endpoint = params.endpoint || configs.network
-  const connection = params.connection || new Connection(endpoint, 'confirmed')
-  const programIdStr = params.programId || configs.programId
-  const user = new PublicKey(params.userPublicKey)
 // Web reader API - scan recent txs for TxRef PDA and decode using IDL
-
-
 
 const enc = new TextEncoder()
 const toStr = (u8: any) => {
@@ -221,15 +218,63 @@ async function collectRowsFromTxRef(
  * readRecentRows
  * - Web-friendly reader entry: returns JSON result.
  */
+export async function readRecentRows(params: ReaderParams): Promise<ReaderResult> {
+  const endpoint = params.endpoint || configs.network
+  const connection = params.connection || new Connection(endpoint, 'confirmed')
+  const programIdStr = params.programId || configs.programId
+  const user = new PublicKey(params.userPublicKey)
+  const idl = params.idl
+
   // Compute PDAs (always safe on web)
   const root = pdaRoot(user)
   const txRef = pdaTxRef(user)
 
-  // TODO: Implement scanning and decoding logic:
-  // - Accept an IDL object from caller and use Anchor's BorshInstructionCoder to decode instructions
-  // - Scan recent signatures for txRef PDA (connection.getSignaturesForAddress)
-  // - Aggregate rows by table name
-  // For now, return empty structure with metadata so UI can integrate progressively.
+  // If no IDL, return metadata only (tables/rows empty)
+  if (!idl) {
+    return {
+      meta: {
+        rootPda: root.toBase58(),
+        txRefPda: txRef.toBase58(),
+        programId: programIdStr,
+        endpoint,
+      },
+      tableNames: [],
+      tables: {},
+      rowsByTable: {},
+    }
+  }
+
+  // With IDL: read root/tables and scan recent txs touching txRef
+  const { tableNames, tables: tablesMeta } = await (async () => {
+    const { tableNames, tables } = await readRootAndTables(connection, idl, user)
+    // convert PDAs to base58 for JSON-friendly output
+    const outTables: Record<string, { columns: string[]; tablePda: string; instPda: string | null }> = {}
+    for (const [name, meta] of Object.entries(tables)) {
+      outTables[name] = {
+        columns: meta.columns,
+        tablePda: meta.tablePda.toBase58(),
+        instPda: meta.instPda ? meta.instPda.toBase58() : null,
+      }
+    }
+    return { tableNames, tables: outTables }
+  })()
+
+  const rowsByTable = await (async () => {
+    const ixCoder = makeIxCoder(idl)
+    const byTable = await collectRowsFromTxRef(
+      connection,
+      new PublicKey(programIdStr),
+      ixCoder,
+      txRef,
+      params.maxTx || 100
+    )
+    // honor perTableLimit if provided
+    const limited: Record<string, Row[]> = {}
+    for (const [name, rows] of Object.entries(byTable)) {
+      limited[name] = params.perTableLimit ? rows.slice(0, params.perTableLimit) : rows
+    }
+    return limited
+  })()
 
   return {
     meta: {
@@ -238,7 +283,34 @@ async function collectRowsFromTxRef(
       programId: programIdStr,
       endpoint,
     },
-    tableNames: [],
-    rowsByTable: {},
+    tableNames,
+    tables: tablesMeta,
+    rowsByTable,
   }
+}
+
+/**
+ * readRowsByTable
+ * - 지정한 테이블 이름의 로우만 스캔/디코딩해서 반환
+ */
+export async function readRowsByTable(
+  params: ReaderParams & { tableName: string }
+): Promise<Row[]> {
+  const endpoint = params.endpoint || configs.network
+  const connection = params.connection || new Connection(endpoint, 'confirmed')
+  const programIdStr = params.programId || configs.programId
+  const user = new PublicKey(params.userPublicKey)
+  const idl = params.idl
+  const tableName = params.tableName
+  const maxTx = params.maxTx || 100
+  const perTableLimit = params.perTableLimit
+
+  if (!idl) return []
+
+  const txRef = pdaTxRef(user)
+  const ixCoder = makeIxCoder(idl)
+  const programId = new PublicKey(programIdStr)
+  const byTable = await collectRowsFromTxRef(connection, programId, ixCoder, txRef, maxTx)
+  const rows = byTable[tableName] || []
+  return perTableLimit ? rows.slice(0, perTableLimit) : rows
 }

@@ -44,7 +44,7 @@ export async function initializeRootWeb<T extends Idl>(ctx: WriterCtx<T>) {
     throw new Error('Instruction "initializeRoot" (or initialize_root) not found in IDL')
   }
 
-  const signature = await init()
+  const tx = await init()
     .accounts({
       root: rootPda,
       txRef: txRefPda,
@@ -52,9 +52,9 @@ export async function initializeRootWeb<T extends Idl>(ctx: WriterCtx<T>) {
       signer,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
 
-  return { signature, root: rootPda.toBase58(), txRef: txRefPda.toBase58() }
+  return { tx, root: rootPda.toBase58(), txRef: txRefPda.toBase58() }
 }
 
 /**
@@ -80,7 +80,7 @@ export async function createTableWeb<T extends Idl>(
     throw new Error('Instruction "createTable" (or create_table) not found in IDL')
   }
 
-  const signature = await create(Buffer.from(tableName, 'utf8'), columnNames.map((s) => Buffer.from(s, 'utf8')))
+  const tx = await create(Buffer.from(tableName, 'utf8'), columnNames.map((s) => Buffer.from(s, 'utf8')))
     .accounts({
       root,
       signer,
@@ -88,9 +88,9 @@ export async function createTableWeb<T extends Idl>(
       instructionTable: instTable,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
 
-  return { signature, table: table.toBase58(), instructionTable: instTable.toBase58() }
+  return { tx, table: table.toBase58(), instructionTable: instTable.toBase58() }
 }
 
 /**
@@ -116,16 +116,16 @@ export async function writeRowWeb<T extends Idl>(
     throw new Error('Instruction "writeData" (or write_data) not found in IDL')
   }
 
-  const signature = await write(Buffer.from(tableName, 'utf8'), Buffer.from(rowJson, 'utf8'))
+  const tx = await write(Buffer.from(tableName, 'utf8'), Buffer.from(rowJson, 'utf8'))
     .accounts({
       root,
       table,
       txRef,
       signer,
     })
-    .rpc()
+    .transaction()
 
-  return { signature }
+  return { tx }
 }
 
 export type EditMode = 'update' | 'delete'
@@ -159,7 +159,7 @@ export async function pushDbInstructionWeb<T extends Idl>(
     throw new Error('Instruction "databaseInstruction" (or database_instruction) not found in IDL')
   }
 
-  const signature = await dbInstr(
+  const tx = await dbInstr(
       Array.from(enc.encode(tableName)),
       enumEditMode(mode),
       Array.from(enc.encode(targetTxSig)),
@@ -172,9 +172,9 @@ export async function pushDbInstructionWeb<T extends Idl>(
       targetTxRef,
       signer,
     })
-    .rpc()
+    .transaction()
 
-  return { signature }
+  return { tx }
 }
 
 

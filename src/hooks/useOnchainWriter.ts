@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import type { Idl } from '@coral-xyz/anchor'
+import bs58 from 'bs58'
 import { initializeRootWeb, createTableWeb, writeRowWeb, pushDbInstructionWeb, type EditMode } from '@/lib/onchainDB'
 
 export type UseOnchainWriterOptions = {
@@ -58,12 +59,38 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
       setError('Writer not ready (wallet or IDL missing)')
       return null
     }
+    if (!walletCtx.publicKey || !walletCtx.signTransaction) {
+      setError('Wallet missing sign capability')
+      return null
+    }
     setLoading(true)
     setError(null)
     try {
       const r = await initializeRootWeb({ connection, wallet: walletCtx as any, idl })
-      setLastSignature(r.signature)
-      return r.signature
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      r.tx.feePayer = walletCtx.publicKey
+      r.tx.recentBlockhash = blockhash
+      r.tx.lastValidBlockHeight = lastValidBlockHeight
+      const signed = await walletCtx.signTransaction(r.tx)
+
+      let sig: string
+      try {
+        sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
+      } catch (err: any) {
+        const msg = err?.message || ''
+        const already = /already been processed|already processed/i.test(msg)
+        const first = signed.signatures?.[0]?.signature
+        const derived = first ? bs58.encode(first) : undefined
+        if (already && derived) {
+          sig = derived
+        } else {
+          throw err
+        }
+      }
+
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+      setLastSignature(sig)
+      return sig
     } catch (e: any) {
       setError(e?.message || String(e))
       return null
@@ -77,12 +104,38 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
       setError('Writer not ready (wallet or IDL missing)')
       return null
     }
+    if (!walletCtx.publicKey || !walletCtx.signTransaction) {
+      setError('Wallet missing sign capability')
+      return null
+    }
     setLoading(true)
     setError(null)
     try {
       const r = await createTableWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns)
-      setLastSignature(r.signature)
-      return r.signature
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      r.tx.feePayer = walletCtx.publicKey
+      r.tx.recentBlockhash = blockhash
+      r.tx.lastValidBlockHeight = lastValidBlockHeight
+      const signed = await walletCtx.signTransaction(r.tx)
+
+      let sig: string
+      try {
+        sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
+      } catch (err: any) {
+        const msg = err?.message || ''
+        const already = /already been processed|already processed/i.test(msg)
+        const first = signed.signatures?.[0]?.signature
+        const derived = first ? bs58.encode(first) : undefined
+        if (already && derived) {
+          sig = derived
+        } else {
+          throw err
+        }
+      }
+
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+      setLastSignature(sig)
+      return sig
     } catch (e: any) {
       setError(e?.message || String(e))
       return null
@@ -96,12 +149,38 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
       setError('Writer not ready (wallet or IDL missing)')
       return null
     }
+    if (!walletCtx.publicKey || !walletCtx.signTransaction) {
+      setError('Wallet missing sign capability')
+      return null
+    }
     setLoading(true)
     setError(null)
     try {
       const r = await writeRowWeb({ connection, wallet: walletCtx as any, idl }, tableName, JSON.stringify(row))
-      setLastSignature(r.signature)
-      return r.signature
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      r.tx.feePayer = walletCtx.publicKey
+      r.tx.recentBlockhash = blockhash
+      r.tx.lastValidBlockHeight = lastValidBlockHeight
+      const signed = await walletCtx.signTransaction(r.tx)
+
+      let sig: string
+      try {
+        sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
+      } catch (err: any) {
+        const msg = err?.message || ''
+        const already = /already been processed|already processed/i.test(msg)
+        const first = signed.signatures?.[0]?.signature
+        const derived = first ? bs58.encode(first) : undefined
+        if (already && derived) {
+          sig = derived
+        } else {
+          throw err
+        }
+      }
+
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+      setLastSignature(sig)
+      return sig
     } catch (e: any) {
       setError(e?.message || String(e))
       return null
@@ -115,12 +194,38 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
       setError('Writer not ready (wallet or IDL missing)')
       return null
     }
+    if (!walletCtx.publicKey || !walletCtx.signTransaction) {
+      setError('Wallet missing sign capability')
+      return null
+    }
     setLoading(true)
     setError(null)
     try {
       const r = await pushDbInstructionWeb({ connection, wallet: walletCtx as any, idl }, tableName, mode, targetTxSig, JSON.stringify(json))
-      setLastSignature(r.signature)
-      return r.signature
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      r.tx.feePayer = walletCtx.publicKey
+      r.tx.recentBlockhash = blockhash
+      r.tx.lastValidBlockHeight = lastValidBlockHeight
+      const signed = await walletCtx.signTransaction(r.tx)
+
+      let sig: string
+      try {
+        sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
+      } catch (err: any) {
+        const msg = err?.message || ''
+        const already = /already been processed|already processed/i.test(msg)
+        const first = signed.signatures?.[0]?.signature
+        const derived = first ? bs58.encode(first) : undefined
+        if (already && derived) {
+          sig = derived
+        } else {
+          throw err
+        }
+      }
+
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+      setLastSignature(sig)
+      return sig
     } catch (e: any) {
       setError(e?.message || String(e))
       return null
