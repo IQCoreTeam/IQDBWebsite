@@ -291,11 +291,6 @@ export default function Home() {
                           <div style={{ display: 'flex', gap: 8 }}>
                             {viewStep === 'rows' && (
                               <>
-                                {selectedRowIndex != null ? (
-                                  <Button size="sm" onClick={() => setSelectedRowIndex(null)}>
-                                    Back to rows
-                                  </Button>
-                                ) : null}
                                 <Button
                                   size="sm"
                                   onClick={() => {
@@ -430,7 +425,7 @@ export default function Home() {
                                 (readData as any).tables[selectedTable].columns.map((c: string, i: number) => (
                                   <span
                                     key={`${c}-${i}`}
-                                    style={{ border: '1px solid #004400', padding: '2px 6px', borderRadius: 4, color: '#00ff00' }}
+                                    style={{ padding: '2px 6px' }}
                                   >
                                     {c}
                                   </span>
@@ -494,16 +489,16 @@ export default function Home() {
                                             <TableDataCell>{col}</TableDataCell>
                                             <TableDataCell>
                                               {isClickable ? (
-                                                <Button
+                                                <Button variant='flat' primary
                                                   onClick={() => alert(String(val ?? ''))}
                                                   title={String(val ?? '')}
                                                 >
                                                   {String(val ?? '')}
                                                 </Button>
                                               ) : (
-                                                <Button disabled title={String(val ?? '')}>
+                                                <div title={String(val ?? '')}>
                                                   {String(val ?? '')}
-                                                </Button>
+                                                </div>
                                               )}
                                             </TableDataCell>
                                           </TableRow>
