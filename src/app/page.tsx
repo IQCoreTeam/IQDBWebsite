@@ -100,6 +100,7 @@ export default function Home() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
   const [rowsForSelected, setRowsForSelected] = useState<any[]>([])
+  const [loadingRows, setLoadingRows] = useState<boolean>(false)
 
   // Auto-load IDL when wallet connects
   useEffect(() => {
@@ -325,16 +326,21 @@ export default function Home() {
                                       setSelectedTable(name)
                                       setSelectedRowIndex(null)
                                       setViewStep('rows')
-                                      const endpoint = readData?.meta?.endpoint
-                                      const rows = await readRowsByTable({
-                                        userPublicKey: userPk,
-                                        idl: readerIdl,
-                                        endpoint,
-                                        programId: (readerIdl as any).address,
-                                        tableName: name,
-                                        maxTx: 100,
-                                      })
-                                      setRowsForSelected(rows)
+                                      setLoadingRows(true)
+                                      try {
+                                        const endpoint = readData?.meta?.endpoint
+                                        const rows = await readRowsByTable({
+                                          userPublicKey: userPk,
+                                          idl: readerIdl,
+                                          endpoint,
+                                          programId: (readerIdl as any).address,
+                                          tableName: name,
+                                          maxTx: 100,
+                                        })
+                                        setRowsForSelected(rows)
+                                      } finally {
+                                        setLoadingRows(false)
+                                      }
                                     }}
                                   >
                                     {name}
@@ -347,17 +353,46 @@ export default function Home() {
                           {/* Step: rows list for selected table */}
                           {viewStep === 'rows' && selectedTable && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              {rowsForSelected.length === 0 ? (
+                              {loadingRows ? (
+                                <Small>Loading...</Small>
+                              ) : rowsForSelected.length === 0 ? (
                                 <Small>No rows in {selectedTable}.</Small>
                               ) : (
                                 rowsForSelected.map((row, idx) => {
                                   const selected = selectedRowIndex === idx
-                                  const short = (() => {
+                                  // 버튼 라벨: 첫 번째 필드의 값만 표시 (raw.value → name/title → 첫 필드 → 정규식 폴백)
+                                  const label = (() => {
                                     try {
-                                      if (!row || typeof row !== 'object') return String(row ?? '')
-                                      if ('name' in row && typeof (row as any).name === 'string') return (row as any).name
-                                      const s = JSON.stringify(row)
-                                      return s.length > 60 ? s.slice(0, 57) + '...' : s
+                                      // 0) row.raw(JSON string) → .value(내부 JSON-유사 문자열) → 첫 키의 값
+                                      if (row && typeof row === 'object' && (row as any).raw && typeof (row as any).raw === 'string') {
+                                        try {
+                                          const outer = JSON.parse((row as any).raw)
+                                          const valStr = typeof outer?.value === 'string' ? outer.value : ''
+                                          if (valStr) {
+                                            // 예: `{ name: "Whiteboy", gender: "Bro"}`
+                                            const m0 = valStr.match(/^\s*\{\s*["']?([^"':,\s]+)["']?\s*:\s*["']?([^,"'}]+)/)
+                                            if (m0?.[2]) return m0[2]
+                                          }
+                                        } catch {
+                                          // ignore and fallback
+                                        }
+                                      }
+                                      // 1) 흔한 키(name/title)
+                                      if (row && typeof row === 'object' && !Array.isArray(row)) {
+                                        if (typeof (row as any).name === 'string') return (row as any).name
+                                        if (typeof (row as any).title === 'string') return (row as any).title
+                                        // 2) 첫 번째 필드 값
+                                        const entries = Object.entries(row)
+                                        if (entries.length > 0) {
+                                          const [, firstVal] = entries[0]
+                                          if (typeof firstVal === 'string') return firstVal
+                                          if (typeof firstVal === 'number' || typeof firstVal === 'boolean') return String(firstVal)
+                                        }
+                                      }
+                                      // 3) 폴백: 문자열로 첫 값만 정규식으로 추출
+                                      const s = JSON.stringify(row ?? '')
+                                      const m = s.match(/^\s*\{\s*"?[^"}\s]+"?\s*:\s*"?([^",}]*)/)
+                                      return m?.[1] || 'row'
                                     } catch {
                                       return 'row'
                                     }
@@ -367,8 +402,9 @@ export default function Home() {
                                       key={idx}
                                       onClick={() => setSelectedRowIndex(idx)}
                                       style={selected ? { background: '#003300', color: '#00ff00' } : undefined}
+                                      title={typeof row === 'object' ? JSON.stringify(row) : String(row)}
                                     >
-                                      {`Row #${idx + 1} — ${short}`}
+                                      {label}
                                     </Button>
                                   )
                                 })
@@ -401,18 +437,70 @@ export default function Home() {
                           ) : null}
                         </div>
 
-                        <ScrollView style={{ marginTop: 8, height: 280 }}>
-                          <TextInput
-                            multiline
-                            variant="flat"
-                            rows={14}
-                            disabled
-                            value={
-                              selectedTable != null && selectedRowIndex != null
-                                ? JSON.stringify(rowsForSelected[selectedRowIndex] ?? {}, null, 2)
-                                : 'Select a row from the left.'
-                            }
-                          />
+                        <ScrollView style={{ marginTop: 8, height: 280, paddingRight: 6 }}>
+                          {selectedTable != null && selectedRowIndex != null ? (
+                            (() => {
+                              const cols: string[] =
+                                ((readData as any)?.tables?.[selectedTable]?.columns as string[]) || []
+                              const row: any = rowsForSelected[selectedRowIndex] ?? {}
+                              // row.raw → outer.value(내부 JSON-유사) → 객체로 파싱
+                              const decoded: Record<string, any> = (() => {
+                                try {
+                                  if (row && typeof row === 'object' && typeof row.raw === 'string') {
+                                    try {
+                                      const outer = JSON.parse(row.raw)
+                                      let valStr: string = typeof outer?.value === 'string' ? outer.value : ''
+                                      if (valStr) {
+                                        // 키에 따옴표 보정 + 작은따옴표 → 큰따옴표
+                                        let normalized = valStr.trim()
+                                        normalized = normalized.replace(/'([^']*)'/g, '"$1"').replace(/(\w+)\s*:/g, '"$1":')
+                                        return JSON.parse(normalized)
+                                      }
+                                    } catch {
+                                      // ignore; fall through
+                                    }
+                                  }
+                                  return row && typeof row === 'object' ? row : {}
+                                } catch {
+                                  return {}
+                                }
+                              })()
+
+                              const clickable = new Set(['session_pda', 'sessionPda', 'tail_tx', 'tailTx'])
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  {cols.length > 0 ? (
+                                    cols.map((col) => {
+                                      const val =
+                                        decoded?.[col] ??
+                                        (row && typeof row === 'object' ? (row as any)[col] : undefined) ??
+                                        ''
+                                      const isClickable = clickable.has(col)
+                                      return (
+                                        <Button
+                                          key={col}
+                                          disabled={!isClickable}
+                                          onClick={() => {
+                                            if (isClickable) {
+                                              alert(String(val ?? ''))
+                                            }
+                                          }}
+                                          title={String(val ?? '')}
+                                        >
+                                          {`${col}: ${String(val ?? '')}`}
+                                        </Button>
+                                      )
+                                    })
+                                  ) : (
+                                    <Small>No columns metadata.</Small>
+                                  )}
+                                </div>
+                              )
+                            })()
+                          ) : (
+                            <Small>Select a row from the left.</Small>
+                          )}
                         </ScrollView>
                       </div>
                     </div>
