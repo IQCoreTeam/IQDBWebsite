@@ -279,11 +279,6 @@ export default function Home() {
                         <div style={{ display: 'flex', gap: 8 }}>
                           {viewStep === 'rows' && (
                             <>
-                              {selectedRowIndex != null ? (
-                                <Button size="sm" onClick={() => setSelectedRowIndex(null)}>
-                                  Back to rows
-                                </Button>
-                              ) : null}
                               <Button
                                 size="sm"
                                 onClick={() => {
@@ -430,7 +425,8 @@ export default function Home() {
                         ) : null}
                       </div>
 
-                      <ScrollView style={{ marginTop: 8, height: 280, paddingRight: 6 }}>
+                      <ScrollView style={{ marginTop: 8,width:490, height: 280, paddingRight: 6 }}>
+                          <div>
                         {selectedTable != null && selectedRowIndex != null ? (
                           (() => {
                             const cols: string[] =
@@ -462,36 +458,62 @@ export default function Home() {
                             const clickable = new Set(['session_pda', 'sessionPda', 'tail_tx', 'tailTx'])
 
                             return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <>
                                 {cols.length > 0 ? (
-                                  cols.map((col) => {
-                                    const val =
-                                      decoded?.[col] ??
-                                      (row && typeof row === 'object' ? (row as any)[col] : undefined) ??
-                                      ''
-                                    const isClickable = clickable.has(col)
-                                    const isSessionPda = col === 'session_pda' || col === 'sessionPda'
-                                    return (
-                                      <Button
-                                        key={col}
-                                        disabled={!isClickable || loadingHybrid}
-                                        onClick={async () => {
-                                          if (isClickable && isSessionPda) {
-                                            // Use separate RPC for HybridV2 (mainnet) vs database (devnet)
-                                            const rpcUrl = process.env.NEXT_PUBLIC_HYBRID_RPC || 'https://rpc.zeroblock.io'
-                                            try {
-                                              await fetchSessionData(String(val), rpcUrl)
-                                            } catch (e) {
-                                              console.error('Failed to fetch session data:', e)
-                                            }
-                                          }
-                                        }}
-                                        title={String(val ?? '')}
-                                      >
-                                        {loadingHybrid && isSessionPda ? '⏳ ' : ''}{`${col}: ${String(val ?? '')}`}
-                                      </Button>
-                                    )
-                                  })
+                                    <ScrollView >
+                                        <div style={{width:"max-content"}}>
+                                  <Table>
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableHeadCell>Column</TableHeadCell>
+                                        <TableHeadCell>Value</TableHeadCell>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {cols.map((col) => {
+                                        const val =
+                                          decoded?.[col] ??
+                                          (row && typeof row === 'object' ? (row as any)[col] : undefined) ??
+                                          ''
+                                        const isClickable = clickable.has(col)
+                                        const isSessionPda = col === 'session_pda' || col === 'sessionPda'
+                                        return (
+                                          <TableRow key={col} >
+                                            <TableDataCell>{col}</TableDataCell>
+                                            <TableDataCell>
+                                              {isClickable ? (
+                                                <Button
+                                                  disabled={loadingHybrid}
+                                                  onClick={async () => {
+                                                    if (isSessionPda) {
+                                                      const rpcUrl = process.env.NEXT_PUBLIC_HYBRID_RPC || 'https://rpc.zeroblock.io'
+                                                      try {
+                                                        await fetchSessionData(String(val), rpcUrl)
+                                                      } catch (e) {
+                                                        console.error('Failed to fetch session data:', e)
+                                                      }
+                                                    } else {
+                                                      alert(String(val ?? ''))
+                                                    }
+                                                  }}
+                                                  title={String(val ?? '')}
+                                                >
+                                                  {loadingHybrid && isSessionPda ? 'loading ' : ''}
+                                                  {String(val ?? '')}
+                                                </Button>
+                                              ) : (
+                                                <div title={String(val ?? '')}>
+                                                  {String(val ?? '')}
+                                                </div>
+                                              )}
+                                            </TableDataCell>
+                                          </TableRow>
+                                        )
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                        </div>
+                                    </ScrollView>
                                 ) : (
                                   <p>No columns metadata.</p>
                                 )}
@@ -536,12 +558,13 @@ export default function Home() {
                                 {hybridError && (
                                   <p style={{ color: '#ff5555', marginTop: 8, fontSize: 12 }}>⚠ {hybridError}</p>
                                 )}
-                              </div>
+                              </>
                             )
                           })()
                         ) : (
                           <p>Select a row from the left.</p>
                         )}
+                          </div>
                       </ScrollView>
                     </div>
                   </div>
@@ -603,7 +626,7 @@ export default function Home() {
 
               // Hex dump (left side) with highlighting
               const hexDump = (
-                <div style={{ flex: 1, minWidth: 350, maxHeight: 500, overflow: 'auto', background: '#001100', padding: 12, border: '1px solid #00ff00' }}>
+                <ScrollView style={{ flex: 1, minWidth: 350, maxHeight: 500, background: '#001100', padding: 12, border: '1px solid #00ff00' }}>
                   <div style={{ color: '#00ff00', marginBottom: 8, fontSize: 12, fontWeight: 'bold' }}>Magic Bytes ({detectedType.toUpperCase()}):</div>
                   <pre style={{ margin: 0, color: '#00ff00', fontSize: 11, fontFamily: 'monospace', background: '#002200', padding: 8 }}>
                     {Array.from(uint8Data.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ')}
@@ -630,7 +653,7 @@ export default function Home() {
                       })}
                     {uint8Data.length > 2048 ? '\n...' : ''}
                   </pre>
-                </div>
+                </ScrollView>
               )
 
               // File preview (right side)
@@ -689,11 +712,11 @@ export default function Home() {
               // Text
               else if (hybridData.preview || detectedType === 'txt' || detectedType === 'json') {
                 preview = (
-                  <div style={{ width: '100%', maxHeight: '500px', overflow: 'auto', padding: 12 }}>
+                  <ScrollView style={{ width: '100%', maxHeight: '500px', padding: 12 }}>
                     <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#00ff00', fontSize: 11, fontFamily: 'monospace' }}>
                       {hybridData.preview || data.toString('utf8')}
                     </pre>
-                  </div>
+                  </ScrollView>
                 )
               }
 
@@ -711,9 +734,11 @@ export default function Home() {
               return (
                 <>
                   {hexDump}
-                  <div style={{ flex: 2, minWidth: 500, maxHeight: 500, overflow: 'auto', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #00ff00', padding: 16 }}>
-                    {preview}
-                  </div>
+                  <ScrollView style={{ flex: 2, minWidth: 500, maxHeight: 500, background: '#000', border: '1px solid #00ff00', padding: 16 }}>
+                    <div style={{ width: '100%', minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {preview}
+                    </div>
+                  </ScrollView>
                 </>
               )
             })()}
