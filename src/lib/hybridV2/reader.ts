@@ -5,6 +5,11 @@ import bs58 from 'bs58'
 
 const PINOCCHIO_PROGRAM_ID = '4jB7tZybufNfgs8HRj9DiSCMYfEqb8jWkxKcnZnA1vBt'
 
+// Helper function to read u32 little-endian from Uint8Array
+function readUInt32LE(data: Uint8Array | Buffer, offset: number): number {
+  return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)
+}
+
 export interface HybridV2SessionMetadata {
   owner: string
   sessionId: string
@@ -119,7 +124,7 @@ export async function readHybridV2Session(
         chunkOffset += 16
 
         // Read chunk_index (u32)
-        const chunkIndex = data.readUInt32LE(chunkOffset)
+        const chunkIndex = readUInt32LE(data, chunkOffset)
         chunkOffset += 4
 
         // Skip method (u8)

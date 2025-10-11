@@ -12,6 +12,14 @@ import {
   TabBody,
   GroupBox,
   Button,
+  MenuList,
+  MenuListItem,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeadCell,
+  TableDataCell,
 } from 'react95'
 import WalletButton from '@/components/wallet/WalletButton'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -58,11 +66,9 @@ const Row = styled.div`
   margin-top: 8px;
 `
 
-const Small = styled.div`
-  color: #00ff00;
-  font-size: 12px;
-  opacity: 0.85;
-`
+
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic'
 
 export default function Home() {
   // SSR guard
@@ -258,9 +264,9 @@ export default function Home() {
                   </Row>
                   <div style={{ marginTop: 8 }}>
                     {readError ? (
-                      <Small style={{ color: '#ff5555' }}>⚠ {readError}</Small>
+                      <p style={{ color: '#ff5555' }}>⚠ {readError}</p>
                     ) : null}
-                    {!wallet.connected ? <Small>Connect your wallet to read data.</Small> : null}
+                    {!wallet.connected ? <p>Connect your wallet to read data.</p> : null}
                   </div>
 
                   <div style={{ display: 'flex', gap: 12, marginTop: 12, minHeight: 280 }}>
@@ -299,9 +305,9 @@ export default function Home() {
                         {viewStep === 'tables' && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {reading ? (
-                              <Small>Loading...</Small>
+                              <p>Loading...</p>
                             ) : (readData?.tableNames?.length || 0) === 0 ? (
-                              <Small>No tables found.</Small>
+                              <p>No tables found.</p>
                             ) : (
                               readData!.tableNames.map((name) => (
                                 <Button
@@ -312,17 +318,20 @@ export default function Home() {
                                     setSelectedRowIndex(null)
                                     setViewStep('rows')
                                     setLoadingRows(true)
-                                    const endpoint = readData?.meta?.endpoint
-                                    const rows = await readRowsByTable({
-                                      userPublicKey: userPk,
-                                      idl: readerIdl,
-                                      endpoint,
-                                      programId: (readerIdl as any).address,
-                                      tableName: name,
-                                      maxTx: 100,
-                                    })
-                                    setRowsForSelected(rows)
-                                    setLoadingRows(false)
+                                    try {
+                                      const endpoint = readData?.meta?.endpoint
+                                      const rows = await readRowsByTable({
+                                        userPublicKey: userPk,
+                                        idl: readerIdl,
+                                        endpoint,
+                                        programId: (readerIdl as any).address,
+                                        tableName: name,
+                                        maxTx: 100,
+                                      })
+                                      setRowsForSelected(rows)
+                                    } finally {
+                                      setLoadingRows(false)
+                                    }
                                   }}
                                 >
                                   {name}
@@ -336,60 +345,62 @@ export default function Home() {
                         {viewStep === 'rows' && selectedTable && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {loadingRows ? (
-                              <Small>Loading...</Small>
+                              <p>Loading...</p>
                             ) : rowsForSelected.length === 0 ? (
-                              <Small>No rows in {selectedTable}.</Small>
+                              <p>No rows in {selectedTable}.</p>
                             ) : (
-                              rowsForSelected.map((row, idx) => {
-                                const selected = selectedRowIndex === idx
-                                // 버튼 라벨: 첫 번째 필드의 값만 표시 (raw.value → name/title → 첫 필드 → 정규식 폴백)
-                                const label = (() => {
-                                  try {
-                                    // 0) row.raw(JSON string) → .value(내부 JSON-유사 문자열) → 첫 키의 값
-                                    if (row && typeof row === 'object' && (row as any).raw && typeof (row as any).raw === 'string') {
-                                      try {
-                                        const outer = JSON.parse((row as any).raw)
-                                        const valStr = typeof outer?.value === 'string' ? outer.value : ''
-                                        if (valStr) {
-                                          // 예: `{ name: "Whiteboy", gender: "Bro"}`
-                                          const m0 = valStr.match(/^\s*\{\s*["']?([^"':,\s]+)["']?\s*:\s*["']?([^,"'}]+)/)
-                                          if (m0?.[2]) return m0[2]
+                              <MenuList style={{ width: '100%' }}>
+                                {rowsForSelected.map((row, idx) => {
+                                  const selected = selectedRowIndex === idx
+                                  // 라벨: raw.value → name/title → 첫 필드 → 정규식 폴백
+                                  const label = (() => {
+                                    try {
+                                      // 0) row.raw(JSON string) → .value(내부 JSON-유사 문자열) → 첫 키의 값
+                                      if (row && typeof row === 'object' && (row as any).raw && typeof (row as any).raw === 'string') {
+                                        try {
+                                          const outer = JSON.parse((row as any).raw)
+                                          const valStr = typeof outer?.value === 'string' ? outer.value : ''
+                                          if (valStr) {
+                                            // 예: `{ name: "Whiteboy", gender: "Bro"}`
+                                            const m0 = valStr.match(/^\s*\{\s*["']?([^"':,\s]+)["']?\s*:\s*["']?([^,"'}]+)/)
+                                            if (m0?.[2]) return m0[2]
+                                          }
+                                        } catch {
+                                          // ignore and fallback
                                         }
-                                      } catch {
-                                        // ignore and fallback
                                       }
-                                    }
-                                    // 1) 흔한 키(name/title)
-                                    if (row && typeof row === 'object' && !Array.isArray(row)) {
-                                      if (typeof (row as any).name === 'string') return (row as any).name
-                                      if (typeof (row as any).title === 'string') return (row as any).title
-                                      // 2) 첫 번째 필드 값
-                                      const entries = Object.entries(row)
-                                      if (entries.length > 0) {
-                                        const [, firstVal] = entries[0]
-                                        if (typeof firstVal === 'string') return firstVal
-                                        if (typeof firstVal === 'number' || typeof firstVal === 'boolean') return String(firstVal)
+                                      // 1) 흔한 키(name/title)
+                                      if (row && typeof row === 'object' && !Array.isArray(row)) {
+                                        if (typeof (row as any).name === 'string') return (row as any).name
+                                        if (typeof (row as any).title === 'string') return (row as any).title
+                                        // 2) 첫 번째 필드 값
+                                        const entries = Object.entries(row)
+                                        if (entries.length > 0) {
+                                          const [, firstVal] = entries[0]
+                                          if (typeof firstVal === 'string') return firstVal
+                                          if (typeof firstVal === 'number' || typeof firstVal === 'boolean') return String(firstVal)
+                                        }
                                       }
+                                      // 3) 폴백: 문자열로 첫 값만 정규식으로 추출
+                                      const s = JSON.stringify(row ?? '')
+                                      const m = s.match(/^\s*\{\s*"?[^"}\s]+"?\s*:\s*"?([^",}]*)/)
+                                      return m?.[1] || 'row'
+                                    } catch {
+                                      return 'row'
                                     }
-                                    // 3) 폴백: 문자열로 첫 값만 정규식으로 추출
-                                    const s = JSON.stringify(row ?? '')
-                                    const m = s.match(/^\s*\{\s*"?[^"}\s]+"?\s*:\s*"?([^",}]*)/)
-                                    return m?.[1] || 'row'
-                                  } catch {
-                                    return 'row'
-                                  }
-                                })()
-                                return (
-                                  <Button
-                                    key={idx}
-                                    onClick={() => setSelectedRowIndex(idx)}
-                                    style={selected ? { background: '#003300', color: '#00ff00' } : undefined}
-                                    title={typeof row === 'object' ? JSON.stringify(row) : String(row)}
-                                  >
-                                    {label}
-                                  </Button>
-                                )
-                              })
+                                  })()
+                                  return (
+                                    <MenuListItem
+                                      key={idx}
+                                      onClick={() => setSelectedRowIndex(idx)}
+                                      primary={selected}
+                                      title={typeof row === 'object' ? JSON.stringify(row) : String(row)}
+                                    >
+                                      {label}
+                                    </MenuListItem>
+                                  )
+                                })}
+                              </MenuList>
                             )}
                           </div>
                         )}
@@ -402,24 +413,24 @@ export default function Home() {
                         <p style={{ margin: 0 }}>Details</p>
                         {selectedTable && (readData as any)?.tables?.[selectedTable] ? (
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <Small>columns:</Small>
+                            <p>columns:</p>
                             {(readData as any).tables[selectedTable].columns.length > 0 ? (
                               (readData as any).tables[selectedTable].columns.map((c: string, i: number) => (
                                 <span
                                   key={`${c}-${i}`}
-                                  style={{ border: '1px solid #004400', padding: '2px 6px', borderRadius: 4, color: '#00ff00' }}
+                                  style={{ padding: '2px 6px' }}
                                 >
                                   {c}
                                 </span>
                               ))
                             ) : (
-                              <Small>none</Small>
+                              <p>none</p>
                             )}
                           </div>
                         ) : null}
                       </div>
 
-                      <ScrollView style={{ marginTop: 8, height: 280, paddingRight: 6, overflowY: 'auto', overflowX: 'hidden' }}>
+                      <ScrollView style={{ marginTop: 8, height: 280, paddingRight: 6 }}>
                         {selectedTable != null && selectedRowIndex != null ? (
                           (() => {
                             const cols: string[] =
@@ -482,13 +493,13 @@ export default function Home() {
                                     )
                                   })
                                 ) : (
-                                  <Small>No columns metadata.</Small>
+                                  <p>No columns metadata.</p>
                                 )}
 
                                 {/* Display HybridV2 data if loaded */}
                                 {hybridData && (
                                   <div style={{ marginTop: 12, padding: 8, background: '#001100', border: '1px solid #00ff00', maxWidth: '100%', overflow: 'hidden' }}>
-                                    <Small style={{ color: '#00ff00', marginBottom: 8 }}>📦 Session Data:</Small>
+                                    <p style={{ color: '#00ff00', marginBottom: 8, fontSize: 12 }}>📦 Session Data:</p>
                                     <div style={{ marginTop: 8, fontSize: 11 }}>
                                       <div>Status: {hybridData.metadata.status}</div>
                                       <div>Chunks: {hybridData.chunksFound}/{hybridData.totalChunks}</div>
@@ -523,13 +534,13 @@ export default function Home() {
                                   </div>
                                 )}
                                 {hybridError && (
-                                  <Small style={{ color: '#ff5555', marginTop: 8 }}>⚠ {hybridError}</Small>
+                                  <p style={{ color: '#ff5555', marginTop: 8, fontSize: 12 }}>⚠ {hybridError}</p>
                                 )}
                               </div>
                             )
                           })()
                         ) : (
-                          <Small>Select a row from the left.</Small>
+                          <p>Select a row from the left.</p>
                         )}
                       </ScrollView>
                     </div>
