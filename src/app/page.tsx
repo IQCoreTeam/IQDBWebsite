@@ -290,16 +290,10 @@ export default function Home() {
                           <TableRow key={idx}>
                             <TableDataCell>
                               <TextInput
-                                placeholder="column"
+                                placeholder="column (use Fetch or Manage Table)"
                                 value={pair.key}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setKvRows((rows) => {
-                                    const next = rows.slice()
-                                    next[idx] = { ...next[idx], key: v }
-                                    return next
-                                  })
-                                }}
+                                readOnly
+                                disabled
                               />
                             </TableDataCell>
                             <TableDataCell>
