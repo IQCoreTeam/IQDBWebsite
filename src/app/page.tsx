@@ -455,7 +455,7 @@ export default function Home() {
                               }
                             })()
 
-                            const clickable = new Set(['session_pda', 'sessionPda', 'tail_tx', 'tailTx'])
+                            const clickable = new Set(['session_pda', 'sessionPda','dbLinkedListTrx','db_linked_list_trx', 'tail_tx', 'tailTx'])
 
                             return (
                               <>
