@@ -98,6 +98,7 @@ export default function Home() {
   // Writer inputs
   const [tableName, setTableName] = useState('')
   const [kvRows, setKvRows] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
+  const [fetchingMeta, setFetchingMeta] = useState(false)
 
   // Reader navigation states
   const [viewStep, setViewStep] = useState<'tables' | 'rows'>('tables')
@@ -231,6 +232,41 @@ export default function Home() {
                       value={tableName}
                       onChange={(e) => setTableName(e.target.value)}
                     />
+                    <Button
+                      size="sm"
+                      title="Fetch columns by table name"
+                      disabled={!readerIdl || !userPk || !tableName || fetchingMeta}
+                      onClick={async () => {
+                        if (!readerIdl || !userPk || !tableName) return
+                        setFetchingMeta(true)
+                        try {
+                          const endpoint = readData?.meta?.endpoint
+                          const meta = await readTableMeta({
+                            userPublicKey: userPk,
+                            idl: readerIdl,
+                            endpoint,
+                            programId: (readerIdl as any).address,
+                            tableName,
+                          })
+                          const cols: string[] = (meta?.columns || []).map((c) => String(c).trim()).filter(Boolean)
+                          if (cols.length === 0) return
+                          setKvRows((prev) => {
+                            const existing = new Set(prev.map((p) => p.key.trim()).filter(Boolean))
+                            const missing = cols.filter((c) => !existing.has(c))
+                            // 비어있는 1행만 있을 때는 해당 컬럼들로 대체
+                            if (prev.length === 1 && prev[0].key.trim() === '' && prev[0].value.trim() === '') {
+                              return missing.map((c) => ({ key: c, value: '' }))
+                            }
+                            // 그 외에는 없는 컬럼만 뒤에 추가
+                            return [...prev, ...missing.map((c) => ({ key: c, value: '' }))] 
+                          })
+                        } finally {
+                          setFetchingMeta(false)
+                        }
+                      }}
+                    >
+                      {fetchingMeta ? 'Fetching...' : 'Fetch'}
+                    </Button>
                   </FieldRow>
 
                   <div style={{ marginTop: 8 }}>
@@ -687,8 +723,16 @@ export default function Home() {
               <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
                 <Button
                   onClick={() => {
-                    // Return hardcoded sessionPDA row
-                    setKvRows((rows) => [...rows, { key: 'session_pda', value: 'examplesessionpda' }])
+                    // Fill existing session_pda if present; otherwise append one
+                    setKvRows((rows) => {
+                      const idx = rows.findIndex(r => r.key.trim() === 'session_pda' || r.key.trim() === 'sessionPda')
+                      if (idx >= 0) {
+                        const next = rows.slice()
+                        next[idx] = { ...next[idx], value: 'examplesessionpda' }
+                        return next
+                      }
+                      return [...rows, { key: 'session_pda', value: 'examplesessionpda' }]
+                    })
                     setShowAddFilePopup(false)
                   }}
                 >
