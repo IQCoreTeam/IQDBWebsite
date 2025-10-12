@@ -96,8 +96,7 @@ export default function Home() {
 
   // Writer inputs
   const [tableName, setTableName] = useState('')
-  const [columns, setColumns] = useState('')
-  const [rowJson, setRowJson] = useState(``)
+  const [kvRows, setKvRows] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
 
   // Reader navigation states
   const [viewStep, setViewStep] = useState<'tables' | 'rows'>('tables')
@@ -106,6 +105,10 @@ export default function Home() {
   const [rowsForSelected, setRowsForSelected] = useState<any[]>([])
   const [selectedTableColumns, setSelectedTableColumns] = useState<string[]>([])
   const [loadingRows, setLoadingRows] = useState<boolean>(false)
+
+  // AddFile popup state
+  const [showAddFilePopup, setShowAddFilePopup] = useState(false)
+  const [fileProgress, setFileProgress] = useState(0)
 
   // HybridV2 reader for session PDAs
   const { loading: loadingHybrid, error: hybridError, data: hybridData, fetchSessionData } = useHybridV2Reader()
@@ -138,6 +141,19 @@ export default function Home() {
     }
   }, [lastSignature, refresh])
 
+  // Simulate progress while AddFile popup is open
+  useEffect(() => {
+    if (!showAddFilePopup) return
+    setFileProgress(0)
+    const timer = setInterval(() => {
+      setFileProgress((p) => {
+        const next = p + 7
+        return next >= 100 ? 100 : next
+      })
+    }, 200)
+    return () => clearInterval(timer)
+  }, [showAddFilePopup])
+
   // Handlers
   // Tabs onChange follows React95 story signature (value: number, event)
   const onTabChange = (value: number) => setActiveTab(value)
@@ -152,21 +168,33 @@ export default function Home() {
   }
 
   const onClickCreate = async () => {
-    const cols = columns
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (!tableName || cols.length === 0) return
+    const cols = kvRows.map((r) => r.key.trim()).filter(Boolean)
+    if (!tableName) return
     await createTable(tableName, cols)
   }
 
   const onClickWrite = async () => {
-    if (!tableName || !rowJson) return
-    let payload: Record<string, any>
-    try {
-      payload = JSON.parse(rowJson)
-    } catch {
-      payload = { value: rowJson }
+    if (!tableName) return
+    const entries = kvRows
+      .map(({ key, value }) => ({ key: key.trim(), value }))
+      .filter((e) => e.key.length > 0)
+    if (entries.length === 0) return
+
+    const parseVal = (v: string) => {
+      const t = v.trim()
+      if (t.length === 0) return ''
+      try {
+        return JSON.parse(t)
+      } catch {
+        if (!Number.isNaN(Number(t)) && /^\d+(\.\d+)?$/.test(t)) return Number(t)
+        if (/^(true|false)$/i.test(t)) return /^true$/i.test(t)
+        return t
+      }
+    }
+
+    const payload: Record<string, any> = {}
+    for (const { key, value } of entries) {
+      payload[key] = parseVal(value)
     }
     await writeRow(tableName, payload)
   }
@@ -204,24 +232,65 @@ export default function Home() {
                     />
                   </FieldRow>
 
-                  <FieldRow>
-                    <p style={{ minWidth: 100 }}>Columns (comma)</p>
-                    <TextInput
-                      placeholder="col1,col2"
-                      value={columns}
-                      onChange={(e) => setColumns(e.target.value)}
-                    />
-                  </FieldRow>
-
-
-                  <div style={{ marginTop: 8, marginBottom: 8 }}>
-                    <p>Row JSON</p>
-                    <TextInput
-                        multiline rows={4}
-                      placeholder='{"name":"cat_meme","session_pda":"xxxxx"}'
-                      value={rowJson}
-                      onChange={(e) => setRowJson(e.target.value)}
-                    />
+                  <div style={{ marginTop: 8 }}>
+                    <p>Data</p>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableHeadCell style={{ width: 180 }}>Column</TableHeadCell>
+                          <TableHeadCell>Data</TableHeadCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {kvRows.map((pair, idx) => (
+                          <TableRow key={idx}>
+                            <TableDataCell>
+                              <TextInput
+                                placeholder="column"
+                                value={pair.key}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setKvRows((rows) => {
+                                    const next = rows.slice()
+                                    next[idx] = { ...next[idx], key: v }
+                                    return next
+                                  })
+                                }}
+                              />
+                            </TableDataCell>
+                            <TableDataCell>
+                              <TextInput
+                                placeholder="value"
+                                value={pair.value}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setKvRows((rows) => {
+                                    const next = rows.slice()
+                                    next[idx] = { ...next[idx], value: v }
+                                    return next
+                                  })
+                                }}
+                              />
+                            </TableDataCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                      <Button
+                        size="sm"
+                        onClick={() => setKvRows((rows) => [...rows, { key: '', value: '' }])}
+                      >
+                        + Add
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowAddFilePopup(true)}
+                        title="add file by codein"
+                      >
+                        + AddFile
+                      </Button>
+                    </div>
                   </div>
 
                   <Row>
@@ -540,7 +609,7 @@ export default function Home() {
                                 {/* Display HybridV2 data if loaded */}
                                 {hybridData && (
                                   <div style={{ marginTop: 12, padding: 8, background: '#001100', border: '1px solid #00ff00', maxWidth: '100%', overflow: 'hidden' }}>
-                                    <p style={{ color: '#00ff00', marginBottom: 8, fontSize: 12 }}>📦 Session Data:</p>
+                                    <p style={{ color: '#00ff00', marginBottom: 8, fontSize: 12 }}> Session Data:</p>
                                     <div style={{ marginTop: 8, fontSize: 11 }}>
                                       <div>Status: {hybridData.metadata.status}</div>
                                       <div>Chunks: {hybridData.chunksFound}/{hybridData.totalChunks}</div>
@@ -593,6 +662,52 @@ export default function Home() {
           </TabBody>
         </DraggableWindow>
       </div>
+
+      {/* Add File Popup Window */}
+      {showAddFilePopup && (
+        <DraggableWindow
+          title="[ add_file.exe ]"
+          initialPosition={{ x: 220, y: 140 }}
+          onClose={() => setShowAddFilePopup(false)}
+          width={420}
+          zIndex={20000}
+        >
+          <div style={{ padding: 16 }}>
+            <GroupBox label="add file by codein">
+              <div style={{ marginTop: 8, marginBottom: 8, fontSize: 12, color: '#aaa' }}>
+                Preparing... Check progress below.
+              </div>
+              {/* Simple progress bar */}
+              <div style={{ border: '1px solid #0f0', height: 18, background: '#001100' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${fileProgress}%`,
+                    background: '#00aa00',
+                    transition: 'width 0.2s linear',
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: 6, textAlign: 'right', fontSize: 12, color: '#0f0' }}>
+                {fileProgress}%
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                <Button
+                  onClick={() => {
+                    // Return hardcoded sessionPDA row
+                    setKvRows((rows) => [...rows, { key: 'session_pda', value: 'examplesessionpda' }])
+                    setShowAddFilePopup(false)
+                  }}
+                >
+                  Done
+                </Button>
+                <Button onClick={() => setShowAddFilePopup(false)}>Cancel</Button>
+              </div>
+            </GroupBox>
+          </div>
+        </DraggableWindow>
+      )}
 
       {/* File Preview Popup Window */}
       {showPreviewWindow && hybridData && (
