@@ -26,7 +26,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { useOnchainWriter } from '@/hooks/useOnchainWriter'
 import { useOnchainReader } from '@/hooks/useOnchainReader'
 import { useHybridV2Reader } from '@/hooks/useHybridV2Reader'
-import { readRowsByTable } from '@/lib/onchainDB'
+import { readRowsByTable, readTableMeta } from '@/lib/onchainDB'
 import DraggableWindow from "@/components/ui/DraggableWindow";
 
 const Container = styled.div`
@@ -104,6 +104,7 @@ export default function Home() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
   const [rowsForSelected, setRowsForSelected] = useState<any[]>([])
+  const [selectedTableColumns, setSelectedTableColumns] = useState<string[]>([])
   const [loadingRows, setLoadingRows] = useState<boolean>(false)
 
   // HybridV2 reader for session PDAs
@@ -256,6 +257,7 @@ export default function Home() {
                         setSelectedTable(null)
                         setSelectedRowIndex(null)
                         setRowsForSelected([])
+                        setSelectedTableColumns([])
                       }}
                       disabled={!wallet.connected || reading}
                     >
@@ -286,6 +288,7 @@ export default function Home() {
                                   setSelectedTable(null)
                                   setSelectedRowIndex(null)
                                   setRowsForSelected([])
+                                  setSelectedTableColumns([])
                                 }}
                               >
                                 Back to tables
@@ -315,15 +318,29 @@ export default function Home() {
                                     setLoadingRows(true)
                                     try {
                                       const endpoint = readData?.meta?.endpoint
-                                      const rows = await readRowsByTable({
-                                        userPublicKey: userPk,
-                                        idl: readerIdl,
-                                        endpoint,
-                                        programId: (readerIdl as any).address,
-                                        tableName: name,
-                                        maxTx: 100,
-                                      })
+                                      const [rows, meta] = await Promise.all([
+                                        readRowsByTable({
+                                          userPublicKey: userPk,
+                                          idl: readerIdl,
+                                          endpoint,
+                                          programId: (readerIdl as any).address,
+                                          tableName: name,
+                                          maxTx: 100,
+                                        }),
+                                        readTableMeta({
+                                          userPublicKey: userPk,
+                                          idl: readerIdl,
+                                          endpoint,
+                                          programId: (readerIdl as any).address,
+                                          tableName: name,
+                                        }),
+                                      ])
                                       setRowsForSelected(rows)
+                                      // 메타 컬럼 없으면 rows에서 키를 유추
+                                      const inferred = rows && rows.length > 0 && rows[0] && typeof rows[0] === 'object'
+                                        ? Object.keys(rows[0] as any)
+                                        : []
+                                      setSelectedTableColumns((meta?.columns?.length ?? 0) > 0 ? meta.columns : inferred)
                                     } finally {
                                       setLoadingRows(false)
                                     }
@@ -406,11 +423,11 @@ export default function Home() {
                     <div style={{ flex: 1.2, minWidth: 320 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ margin: 0 }}>Details</p>
-                        {selectedTable && (readData as any)?.tables?.[selectedTable] ? (
+                        {selectedTable ? (
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                             <p>columns:</p>
-                            {(readData as any).tables[selectedTable].columns.length > 0 ? (
-                              (readData as any).tables[selectedTable].columns.map((c: string, i: number) => (
+                            {selectedTableColumns.length > 0 ? (
+                              selectedTableColumns.map((c: string, i: number) => (
                                 <span
                                   key={`${c}-${i}`}
                                   style={{ padding: '2px 6px' }}
@@ -430,7 +447,9 @@ export default function Home() {
                         {selectedTable != null && selectedRowIndex != null ? (
                           (() => {
                             const cols: string[] =
-                              ((readData as any)?.tables?.[selectedTable]?.columns as string[]) || []
+                              (selectedTableColumns && selectedTableColumns.length > 0
+                                ? selectedTableColumns
+                                : (((readData as any)?.tables?.[selectedTable]?.columns as string[]) || []))
                             const row: any = rowsForSelected[selectedRowIndex] ?? {}
                             // row.raw → outer.value(내부 JSON-유사) → 객체로 파싱
                             const decoded: Record<string, any> = (() => {

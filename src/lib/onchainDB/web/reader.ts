@@ -88,7 +88,7 @@ async function fetchAndDecode<T = any>(
   return coder.decode(accountName, info.data) as T
 }
 
-async function readRootAndTables(
+async function readTableListFromRoot(
   connection: Connection,
   idl: Idl,
   user: PublicKey
@@ -97,21 +97,11 @@ async function readRootAndTables(
   const rootPda = pdaRoot(user)
   const root = await fetchAndDecode<any>(connection, accCoder, rootPda, 'Root')
   if (!root) {
-    return { rootPda, creator: null as string | null, tableNames: [] as string[], tables: {} as Record<string, { columns: string[]; tablePda: PublicKey; instPda: PublicKey | null }> }
+    return { rootPda, creator: null as string | null, tableNames: [] as string[] }
   }
   const creator = new PublicKey(root.creator).toBase58()
   const tableNames: string[] = (root.table_names ?? []).map((v: any) => toStr(v))
-  const tables: Record<string, { columns: string[]; tablePda: PublicKey; instPda: PublicKey | null }> = {}
-
-  for (const name of tableNames) {
-    const seed = enc.encode(name)
-    const tablePda = pdaTable(rootPda, seed)
-    const instPda = pdaInstructionTable(rootPda, seed)
-    const tableAcc = await fetchAndDecode<any>(connection, accCoder, tablePda, 'Table')
-    const columns = tableAcc ? (tableAcc.column_names ?? []).map((v: any) => toStr(v)) : []
-    tables[name] = { columns, tablePda, instPda }
-  }
-  return { rootPda, creator, tableNames, tables }
+  return { rootPda, creator, tableNames }
 }
 
 async function getSignaturesFor(address: PublicKey, connection: Connection, limit: number) {
@@ -244,37 +234,8 @@ export async function readRecentRows(params: ReaderParams): Promise<ReaderResult
     }
   }
 
-  // With IDL: read root/tables and scan recent txs touching txRef
-  const { tableNames, tables: tablesMeta } = await (async () => {
-    const { tableNames, tables } = await readRootAndTables(connection, idl, user)
-    // convert PDAs to base58 for JSON-friendly output
-    const outTables: Record<string, { columns: string[]; tablePda: string; instPda: string | null }> = {}
-    for (const [name, meta] of Object.entries(tables)) {
-      outTables[name] = {
-        columns: meta.columns,
-        tablePda: meta.tablePda.toBase58(),
-        instPda: meta.instPda ? meta.instPda.toBase58() : null,
-      }
-    }
-    return { tableNames, tables: outTables }
-  })()
-
-  const rowsByTable = await (async () => {
-    const ixCoder = makeIxCoder(idl)
-    const byTable = await collectRowsFromTxRef(
-      connection,
-      new PublicKey(programIdStr),
-      ixCoder,
-      txRef,
-      params.maxTx || 100
-    )
-    // honor perTableLimit if provided
-    const limited: Record<string, Row[]> = {}
-    for (const [name, rows] of Object.entries(byTable)) {
-      limited[name] = params.perTableLimit ? rows.slice(0, params.perTableLimit) : rows
-    }
-    return limited
-  })()
+  // With IDL: read only table list from root (no per-table account reads here)
+  const { tableNames } = await readTableListFromRoot(connection, idl, user)
 
   return {
     meta: {
@@ -284,8 +245,8 @@ export async function readRecentRows(params: ReaderParams): Promise<ReaderResult
       endpoint,
     },
     tableNames,
-    tables: tablesMeta,
-    rowsByTable,
+    tables: {},
+    rowsByTable: {}, // rows are fetched on-demand per table
   }
 }
 
@@ -307,10 +268,88 @@ export async function readRowsByTable(
 
   if (!idl) return []
 
-  const txRef = pdaTxRef(user)
+  // Derive PDAs (pure computation, no network read)
+  const rootPda = pdaRoot(user)
+  const seed = enc.encode(tableName)
+  const tablePda = pdaTable(rootPda, seed)
+  const instPda = pdaInstructionTable(rootPda, seed)
+
+  // Scan signatures touching both table PDA and instruction PDA (if present)
   const ixCoder = makeIxCoder(idl)
   const programId = new PublicKey(programIdStr)
-  const byTable = await collectRowsFromTxRef(connection, programId, ixCoder, txRef, maxTx)
-  const rows = byTable[tableName] || []
+  const lists = await Promise.all([tablePda, instPda].map(addr => getSignaturesFor(addr, connection, maxTx)))
+  const sigMap = new Map<string, ConfirmedSignatureInfo>()
+  for (const list of lists) {
+    for (const s of list) {
+      if (!sigMap.has(s.signature)) sigMap.set(s.signature, s)
+    }
+  }
+  const sigs = Array.from(sigMap.values())
+    .sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0))
+    .slice(0, maxTx)
+
+  const programIdB58 = programId.toBase58()
+  const rows: Row[] = []
+  for (const s of sigs) {
+    const tx = await connection.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 })
+    if (!tx) continue
+    const decoded = decodeAllIxsFromTx(tx as any, programIdB58, ixCoder)
+    for (const d of decoded) {
+      try {
+        if (d.name === 'write_data') {
+          const nameInIx = toStr(d.data.table_name ?? d.data[0])
+          if (nameInIx !== tableName) continue
+          const payloadStr =
+            toStr(d.data.row_json_tx ?? d.data.rowJsonTx ?? d.data[1])
+          rows.push(tryParseJsonLoose(payloadStr))
+        } else if (d.name === 'database_instruction') {
+          const nameInIx = toStr(d.data.table_name ?? d.data[0])
+          if (nameInIx !== tableName) continue
+          const contentStr =
+            toStr(d.data.contentJsonTx ?? d.data.content_json_tx ?? d.data[3])
+          rows.push(tryParseJsonLoose(contentStr))
+        }
+      } catch {
+        // skip decode errors
+      }
+    }
+  }
+
   return perTableLimit ? rows.slice(0, perTableLimit) : rows
+}
+
+/**
+ * readTableMeta
+ * - 지정한 테이블 이름의 컬럼 메타와 PDA(base58)를 반환
+ * - root를 재조회하지 않고 user + tableName으로 PDA를 계산하고,
+ *   Table 계정을 디코딩하여 column_names만 읽습니다.
+ */
+export async function readTableMeta(
+  params: ReaderParams & { tableName: string }
+): Promise<{ columns: string[]; tablePda: string; instPda: string | null }> {
+  const endpoint = params.endpoint || configs.network
+  const connection = params.connection || new Connection(endpoint, 'confirmed')
+  const user = new PublicKey(params.userPublicKey)
+  const idl = params.idl
+  const tableName = params.tableName
+
+  // PDA 계산(순수 연산)
+  const rootPda = pdaRoot(user)
+  const seed = new TextEncoder().encode(tableName)
+  const tablePda = pdaTable(rootPda, seed)
+  const instPda = pdaInstructionTable(rootPda, seed)
+
+  if (!idl) {
+    return { columns: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+  }
+
+  // Table 계정에서 columns 메타만 디코딩
+  const accCoder = makeAccountsCoder(idl)
+  try {
+    const tableAcc = await fetchAndDecode<any>(connection, accCoder, tablePda, 'Table')
+    const columns = tableAcc ? (tableAcc.column_names ?? []).map((v: any) => toStr(v)) : []
+    return { columns, tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+  } catch {
+    return { columns: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+  }
 }

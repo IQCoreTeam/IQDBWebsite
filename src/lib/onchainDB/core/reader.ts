@@ -64,22 +64,8 @@ async function readRootAndTables(
 ) {
     const rootPda = pdaRoot(user);
     const root = await fetchAndDecode<any>(connection, coder, rootPda, "Root");
-    if (!root) {
-        return { rootPda, creator: null, tableNames: [] as string[], tables: {} as Record<string, { columns: string[], tablePda: PublicKey, instPda: PublicKey | null }> };
-    }
-    const creator = new PublicKey(root.creator).toBase58();
-    const tableNames: string[] = (root.table_names ?? []).map((v: any) => toStr(v));
-
-    const tables: Record<string, { columns: string[], tablePda: PublicKey, instPda: PublicKey | null }> = {};
-    for (const name of tableNames) {
-        const seed = new TextEncoder().encode(name);
-        const tablePda = pdaTable(rootPda, seed);
-        const instPda = pdaInstructionTable(rootPda, seed);
-        const tableAcc = await fetchAndDecode<any>(connection, coder, tablePda, "Table");
-        const columns = tableAcc ? (tableAcc.column_names ?? []).map((v: any) => toStr(v)) : [];
-        tables[name] = { columns, tablePda, instPda };
-    }
-    return { rootPda, creator, tableNames, tables };
+    const tableNames: string[] = root ? (root.table_names ?? []).map((v: any) => toStr(v)) : [];
+    return { tableNames };
 }
 
 /* ---------------------- txref scan & instruction decode ---------------------- */
@@ -238,6 +224,94 @@ function printTables(
     }
 }
 
+// Search rows for a table by scanning transactions on its table PDA (and instruction PDA if present)
+export async function searchTableByName({
+                                            idlPath,
+                                            userPubkey,
+                                            programIdStr,
+                                            tableName,
+                                            maxTx = 100
+                                        }: {
+    idlPath: string;
+    userPubkey: string;
+    programIdStr?: string;
+    tableName: string;
+    maxTx?: number;
+}) {
+    const idl = loadIdlFromFile(idlPath);
+    const accCoder = makeAccountsCoder(idl);
+    const ixCoder = makeIxCoder(idl);
+    const connection = new Connection(configs.network, "confirmed");
+
+    const user = new PublicKey(userPubkey);
+    const programId = new PublicKey(programIdStr || (constants?.iqDataBaseContractId ?? configs.programId));
+
+    // derive PDAs directly from root and table name
+    const rootPda = pdaRoot(user);
+    const seed = new TextEncoder().encode(tableName);
+    const tablePda = pdaTable(rootPda, seed);
+    const instPda = pdaInstructionTable(rootPda, seed);
+
+    // ensure table account exists; if not, throw
+    const tableInfo = await connection.getAccountInfo(tablePda);
+    if (!tableInfo) {
+        throw new Error(`Table PDA not found for name '${tableName}': ${tablePda.toBase58()}`);
+    }
+
+    // read columns from table account (best-effort)
+    let columns: string[] = [];
+    try {
+        const decoded = await fetchAndDecode<any>(connection, accCoder, tablePda, "Table");
+        columns = decoded ? (decoded.column_names ?? []).map((v: any) => toStr(v)) : [];
+    } catch {
+        columns = [];
+    }
+
+    const targets: PublicKey[] = [tablePda, ...(instPda ? [instPda] : [])];
+
+    const signatureLists = await Promise.all(targets.map(addr => getSignaturesFor(addr, connection, maxTx)));
+    const sigMap = new Map<string, ConfirmedSignatureInfo>();
+    for (const list of signatureLists) {
+        for (const s of list) {
+            if (!sigMap.has(s.signature)) sigMap.set(s.signature, s);
+        }
+    }
+    const sigs = Array.from(sigMap.values()).sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0)).slice(0, maxTx);
+
+    const rows: Row[] = [];
+    const programIdB58 = programId.toBase58();
+    for (const s of sigs) {
+        const tx = await connection.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
+        if (!tx) continue;
+        const decoded = decodeAllIxsFromTx(tx as any, programIdB58, ixCoder);
+        for (const d of decoded) {
+            try {
+                if (d.name === "write_data") {
+                    const nameInIx = toStr(d.data.table_name ?? d.data[0]);
+                    if (nameInIx !== tableName) continue;
+                    const payloadStr = toStr(d.data.row_json_tx ?? d.data[1]);
+                    rows.push(tryParseJsonLoose(payloadStr));
+                } else if (d.name === "database_instruction") {
+                    const nameInIx = toStr(d.data.table_name ?? d.data[0]);
+                    if (nameInIx !== tableName) continue;
+                    const contentStr = toStr(d.data.contentJsonTx ?? d.data.content_json_tx ?? d.data[3]);
+                    rows.push(tryParseJsonLoose(contentStr));
+                }
+            } catch {
+                // skip decode errors for this tx
+            }
+        }
+    }
+
+    return {
+        tableName,
+        columns,
+        tablePda,
+        instPda,
+        rows
+    };
+}
+
 /* ---------------------- main read entry ---------------------- */
 export async function readTxRefPretty({
                                           idlPath,
@@ -260,24 +334,30 @@ export async function readTxRefPretty({
     const user = new PublicKey(userPubkey);
     const programId = new PublicKey(programIdStr || (constants?.iqDataBaseContractId ?? configs.programId));
 
-    // root / table meta
-    const { rootPda, creator, tableNames, tables } = await readRootAndTables(connection, accCoder, user);
+    // table names only
+    const { tableNames } = await readRootAndTables(connection, accCoder, user);
 
-    // header (간단히)
-    // console.log(`📦 Root PDA: ${rootPda.toBase58()}`);
-    // if (creator) console.log(`  creator : ${creator}`);
-    // console.log(`  tables  : ${JSON.stringify(tableNames)}`);
-    //
-    // // txref
-    const txRefPda = pdaTxRef(user);
-    // console.log(`🧾 TxRef PDA: ${txRefPda.toBase58()}`);
+    // collect rows and table meta per table using searchTableByName
+    const results = await Promise.all(
+        tableNames.map(async (name) => {
+            try {
+                const r = await searchTableByName({ idlPath, userPubkey, programIdStr, tableName: name, maxTx });
+                return { name, rows: r.rows, columns: r.columns, tablePda: r.tablePda, instPda: r.instPda };
+            } catch {
+                return { name, rows: [] as Row[], columns: [] as string[], tablePda: null as any, instPda: null as any };
+            }
+        })
+    );
 
-    // collect rows from recent txs touching txRef PDA
-    const rowsByTable = await collectRowsFromTxRef(connection, programId, ixCoder, txRefPda, maxTx);
+    const rowsByTable: Record<string, Row[]> = {};
+    const tablesMeta: Record<string, { columns: string[], tablePda: PublicKey, instPda: PublicKey | null }> = {};
+    for (const r of results) {
+        rowsByTable[r.name] = r.rows;
+        tablesMeta[r.name] = { columns: r.columns, tablePda: r.tablePda, instPda: r.instPda };
+    }
 
     // pretty print per table (requested style)
-    printTables(tableNames, tables, rowsByTable, perTableLimit);
-
+    printTables(tableNames, tablesMeta, rowsByTable, perTableLimit);
     console.log("✅ Done.");
 }
 
@@ -293,6 +373,7 @@ async function main() {
     const userPubkey = wallet.publicKey.toBase58();
     console.log("///////////////////////////IQDATABASE///////////////////////////");
     console.log("user: ", userPubkey);
+
     await readTxRefPretty({
         idlPath: "target/idl/idl.json",  // IDL 파일 경로
         userPubkey,                             // 현재 solana 설정의 지갑 주소 자동 사용
