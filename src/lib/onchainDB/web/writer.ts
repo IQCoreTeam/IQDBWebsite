@@ -94,6 +94,49 @@ export async function createTableWeb<T extends Idl>(
 }
 
 /**
+ * updateTableColumnsWeb
+ * - Update a table's column list by name.
+ * - Resolves method name dynamically (update_table | updateTableColumns | update_table_columns | setTableColumns | set_table_columns | updateColumns | update_columns).
+ */
+export async function updateTableColumnsWeb<T extends Idl>(
+  ctx: WriterCtx<T>,
+  tableName: string,
+  columnNames: string[]
+) {
+  const program = programFromCtx(ctx)
+  const signer = program.provider.publicKey!
+  const root = pdaRoot(signer)
+  const seed = enc.encode(tableName)
+  const table = pdaTable(root, seed)
+
+  const methods = (program as any).methods as Record<string, any>
+  const upd =
+    methods?.update_table ??
+    methods?.updateTable ??
+    methods?.updateTableColumns ??
+    methods?.update_table_columns ??
+    methods?.setTableColumns ??
+    methods?.set_table_columns ??
+    methods?.updateColumns ??
+    methods?.update_columns
+  if (!upd) {
+    throw new Error(
+      'Instruction for updating columns not found (tried: update_table/updateTable/updateTableColumns/update_table_columns/setTableColumns/set_table_columns/updateColumns/update_columns)'
+    )
+  }
+
+  const tx = await upd(Buffer.from(tableName, 'utf8'), columnNames.map((s) => Buffer.from(s, 'utf8')))
+    .accounts({
+      root,
+      table,
+      signer,
+    })
+    .transaction()
+
+  return { tx, table: table.toBase58() }
+}
+
+/**
  * writeRowWeb
  * - Write a JSON row to table and reference TxRef
  */

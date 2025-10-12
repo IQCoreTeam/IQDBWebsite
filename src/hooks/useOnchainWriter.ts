@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import type { Idl } from '@coral-xyz/anchor'
 import bs58 from 'bs58'
-import { initializeRootWeb, createTableWeb, writeRowWeb, pushDbInstructionWeb, type EditMode } from '@/lib/onchainDB'
+import { initializeRootWeb, createTableWeb, updateTableColumnsWeb, writeRowWeb, pushDbInstructionWeb, type EditMode } from '@/lib/onchainDB'
 
 export type UseOnchainWriterOptions = {
   // IDL object or URL to fetch (one of them must be provided)
@@ -20,6 +20,7 @@ export type UseOnchainWriterState = {
   loadIdl: (url?: string) => Promise<void>
   initializeRoot: () => Promise<string | null>
   createTable: (tableName: string, columns: string[]) => Promise<string | null>
+  updateColumns: (tableName: string, columns: string[]) => Promise<string | null>
   writeRow: (tableName: string, row: Record<string, any>) => Promise<string | null>
   pushInstruction: (tableName: string, mode: EditMode, targetTxSig: string, json: Record<string, any>) => Promise<string | null>
 }
@@ -112,6 +113,51 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     setError(null)
     try {
       const r = await createTableWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns)
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      r.tx.feePayer = walletCtx.publicKey
+      r.tx.recentBlockhash = blockhash
+      r.tx.lastValidBlockHeight = lastValidBlockHeight
+      const signed = await walletCtx.signTransaction(r.tx)
+
+      let sig: string
+      try {
+        sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
+      } catch (err: any) {
+        const msg = err?.message || ''
+        const already = /already been processed|already processed/i.test(msg)
+        const first = signed.signatures?.[0]?.signature
+        const derived = first ? bs58.encode(first) : undefined
+        if (already && derived) {
+          sig = derived
+        } else {
+          throw err
+        }
+      }
+
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+      setLastSignature(sig)
+      return sig
+    } catch (e: any) {
+      setError(e?.message || String(e))
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [ready, idl, connection, walletCtx])
+
+  const updateColumns = useCallback(async (tableName: string, columns: string[]) => {
+    if (!ready || !idl) {
+      setError('Writer not ready (wallet or IDL missing)')
+      return null
+    }
+    if (!walletCtx.publicKey || !walletCtx.signTransaction) {
+      setError('Wallet missing sign capability')
+      return null
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await updateTableColumnsWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
@@ -242,6 +288,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     loadIdl,
     initializeRoot,
     createTable,
+    updateColumns,
     writeRow,
     pushInstruction,
   }

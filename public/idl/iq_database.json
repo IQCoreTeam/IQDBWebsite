@@ -811,6 +811,167 @@
       "args": []
     },
     {
+      "name": "update_table",
+      "discriminator": [
+        224,
+        23,
+        10,
+        48,
+        181,
+        73,
+        121,
+        187
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_name"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
       "name": "write_data",
       "discriminator": [
         211,
@@ -1090,41 +1251,46 @@
   "errors": [
     {
       "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6001,
       "name": "EmptyName",
       "msg": "Name cannot be empty"
     },
     {
-      "code": 6001,
+      "code": 6002,
       "name": "EmptyColumns",
       "msg": "At least one column is required"
     },
     {
-      "code": 6002,
+      "code": 6003,
       "name": "InvalidUtf8",
       "msg": "UTF-8 invalid"
     },
     {
-      "code": 6003,
+      "code": 6004,
       "name": "TableExists",
       "msg": "Table already exists"
     },
     {
-      "code": 6004,
+      "code": 6005,
       "name": "NeedsRealloc",
       "msg": "Reallocation needed; not performed"
     },
     {
-      "code": 6005,
+      "code": 6006,
       "name": "SchemaMismatch",
       "msg": "Row schema mismatch"
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "TxTooLong",
       "msg": "Tx id too long"
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "Overflow",
       "msg": "Overflow"
     }

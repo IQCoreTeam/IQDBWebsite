@@ -17,6 +17,7 @@ export type { EditMode, WriterCtx } from './web/writer'
 export {
   initializeRootWeb,
   createTableWeb,
+  updateTableColumnsWeb,
   writeRowWeb,
   pushDbInstructionWeb,
 } from './web/writer'

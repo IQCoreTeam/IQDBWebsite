@@ -92,6 +92,7 @@ export default function Home() {
     loadIdl,
     initializeRoot,
     createTable,
+    updateColumns,
     writeRow,
   } = useOnchainWriter({ idlUrl: '/idl/iq_database.json' })
 
@@ -111,6 +112,12 @@ export default function Home() {
   // AddFile popup state
   const [showAddFilePopup, setShowAddFilePopup] = useState(false)
   const [fileProgress, setFileProgress] = useState(0)
+
+  // Manage Table popup state
+  const [showManagePopup, setShowManagePopup] = useState(false)
+  const [manageCols, setManageCols] = useState<string[]>([])
+  const [manageFetching, setManageFetching] = useState(false)
+  const [manageExisting, setManageExisting] = useState<boolean | null>(null)
 
   // HybridV2 reader for session PDAs
   const { loading: loadingHybrid, error: hybridError, data: hybridData, fetchSessionData } = useHybridV2Reader()
@@ -334,8 +341,15 @@ export default function Home() {
                     <Button onClick={onClickInit} disabled={!wallet.connected || writing}>
                       Initialize Root
                     </Button>
-                    <Button onClick={onClickCreate} disabled={!canUseWriter || writing}>
-                      Create Table
+                    <Button
+                      onClick={() => {
+                        setManageCols([])
+                        setManageExisting(null)
+                        setShowManagePopup(true)
+                      }}
+                      disabled={!canUseWriter || writing}
+                    >
+                      Manage Table
                     </Button>
                     <Button onClick={onClickWrite} disabled={!canUseWriter || writing}>
                       Write Row
@@ -739,6 +753,157 @@ export default function Home() {
                   Done
                 </Button>
                 <Button onClick={() => setShowAddFilePopup(false)}>Cancel</Button>
+              </div>
+            </GroupBox>
+          </div>
+        </DraggableWindow>
+      )}
+
+      {/* Manage Table Popup */}
+      {showManagePopup && (
+        <DraggableWindow
+          title="[ manage_table.exe ]"
+          initialPosition={{ x: 240, y: 120 }}
+          onClose={() => setShowManagePopup(false)}
+          width={560}
+          zIndex={20000}
+        >
+          <div style={{ padding: 16 }}>
+            <GroupBox label="Manage table">
+              <FieldRow>
+                <p style={{ minWidth: 100, margin: 0 }}>Table name</p>
+                <TextInput
+                  placeholder="table name"
+                  value={tableName}
+                  onChange={(e) => setTableName(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  disabled={!readerIdl || !userPk || !tableName || manageFetching}
+                  onClick={async () => {
+                    if (!readerIdl || !userPk || !tableName) return
+                    setManageFetching(true)
+                    try {
+                      const endpoint = readData?.meta?.endpoint
+                      const meta = await readTableMeta({
+                        userPublicKey: userPk,
+                        idl: readerIdl,
+                        endpoint,
+                        programId: (readerIdl as any).address,
+                        tableName,
+                      })
+                      const cols = (meta?.columns || []).map((c: any) => String(c).trim()).filter(Boolean)
+                      setManageExisting(cols.length > 0)
+                      setManageCols(cols.length > 0 ? cols : [])
+                    } finally {
+                      setManageFetching(false)
+                    }
+                  }}
+                >
+                  {manageFetching ? 'Fetching...' : 'Fetch'}
+                </Button>
+              </FieldRow>
+
+              <div style={{ marginTop: 12 }}>
+                <p style={{ marginBottom: 6 }}>
+                  {manageExisting == null
+                    ? 'Enter table name and fetch to manage columns.'
+                    : manageExisting
+                      ? 'Existing columns (you can add or edit):'
+                      : 'No existing table. Define columns to create.'}
+                </p>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableHeadCell style={{ width: 220 }}>Column</TableHeadCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {manageCols.map((c, idx) => (
+                      <TableRow key={idx}>
+                        <TableDataCell>
+                          <TextInput
+                            placeholder="column name"
+                            value={c}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setManageCols((prev) => {
+                                const next = prev.slice()
+                                next[idx] = v
+                                return next
+                              })
+                            }}
+                          />
+                        </TableDataCell>
+                      </TableRow>
+                    ))}
+                    {manageCols.length === 0 && (
+                      <TableRow>
+                        <TableDataCell>
+                          <TextInput
+                            placeholder="column name"
+                            value=""
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (v.trim().length > 0) {
+                                setManageCols([v])
+                              }
+                            }}
+                          />
+                        </TableDataCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                  <Button
+                    size="sm"
+                    onClick={() => setManageCols((prev) => [...prev, ''])}
+                  >
+                    + Add column
+                  </Button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                {manageExisting ? (
+                  <Button
+                    onClick={async () => {
+                      if (!tableName) return
+                      const cols = manageCols.map((s) => s.trim()).filter(Boolean)
+                      if (cols.length === 0) return
+                      try {
+                        await updateColumns(tableName, cols)
+                        setShowManagePopup(false)
+                        await refresh()
+                      } catch {
+                        // ignore, error handled by hook
+                      }
+                    }}
+                    disabled={!canUseWriter || writing}
+                  >
+                    Update columns
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={async () => {
+                      if (!tableName) return
+                      const cols = manageCols.map((s) => s.trim()).filter(Boolean)
+                      if (cols.length === 0) return
+                      try {
+                        await createTable(tableName, cols)
+                        setShowManagePopup(false)
+                        await refresh()
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    disabled={!canUseWriter || writing}
+                  >
+                    Create table
+                  </Button>
+                )}
+                <Button onClick={() => setShowManagePopup(false)}>Close</Button>
               </div>
             </GroupBox>
           </div>
