@@ -20,6 +20,7 @@ import {
   TableRow,
   TableHeadCell,
   TableDataCell,
+  ProgressBar,
 } from 'react95'
 import WalletButton from '@/components/wallet/WalletButton'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -674,20 +675,11 @@ export default function Home() {
         >
           <div style={{ padding: 16 }}>
             <GroupBox label="add file by codein">
-              <div style={{ marginTop: 8, marginBottom: 8, fontSize: 12, color: '#aaa' }}>
+              <p>
                 Preparing... Check progress below.
-              </div>
-              {/* Simple progress bar */}
-              <div style={{ border: '1px solid #0f0', height: 18, background: '#001100' }}>
-                <div
-                  style={{
-                    height: '100%',
-                    width: `${fileProgress}%`,
-                    background: '#00aa00',
-                    transition: 'width 0.2s linear',
-                  }}
-                />
-              </div>
+              </p>
+              {/* Progress bar */}
+              <ProgressBar variant="tile" value={Math.floor(fileProgress)} />
               <div style={{ marginTop: 6, textAlign: 'right', fontSize: 12, color: '#0f0' }}>
                 {fileProgress}%
               </div>
