@@ -26,6 +26,69 @@
           "signer": true
         },
         {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
           "name": "table",
           "writable": true,
           "pda": {
@@ -1637,6 +1700,12 @@
           },
           {
             "name": "table_names",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "global_table_names",
             "type": {
               "vec": "bytes"
             }

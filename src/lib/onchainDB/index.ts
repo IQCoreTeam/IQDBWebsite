@@ -5,8 +5,8 @@
 export { configs } from './configs'
 
 // Import locally so we can use them in this module (e.g., inside getPdas)
-import { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings } from './provider/pda.provider'
-export { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings }
+import { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings, pdaExtTable } from './provider/pda.provider'
+export { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings, pdaExtTable }
 
 // Web reader API (UI-friendly)
 export type { ReaderParams, ReaderResult, Row } from './web/reader'

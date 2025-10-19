@@ -24,13 +24,44 @@ import {
     TreeView,
     Checkbox,
 } from 'react95'
+import {Connection, PublicKey} from '@solana/web3.js'
 import WalletButton from '@/components/wallet/WalletButton'
 import {useWallet} from '@solana/wallet-adapter-react'
 import {useOnchainWriter} from '@/hooks/useOnchainWriter'
 import {useOnchainReader} from '@/hooks/useOnchainReader'
 import {useHybridV2Reader} from '@/hooks/useHybridV2Reader'
-import {readRowsByTable, readTableMeta} from '@/lib/onchainDB'
+import {configs, pdaExtTable, pdaRoot, readRowsByTable, readTableMeta} from '@/lib/onchainDB'
 import DraggableWindow from "@/components/ui/DraggableWindow";
+
+const utf8Decoder = new TextDecoder()
+
+const decodeVecOfBytesToStrings = (buffer: Uint8Array, start: number) => {
+    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+    let offset = start
+
+    if (offset + 4 > buffer.length) {
+        return { values: [] as string[], offset }
+    }
+
+    const count = view.getUint32(offset, true)
+    offset += 4
+    const values: string[] = []
+
+    for (let i = 0; i < count; i++) {
+        if (offset + 4 > buffer.length) break
+        const len = view.getUint32(offset, true)
+        offset += 4
+        if (offset + len > buffer.length) break
+        const slice = buffer.subarray(offset, offset + len)
+        offset += len
+        const str = utf8Decoder.decode(slice).replace(/\0+$/, '').trim()
+        if (str.length > 0) {
+            values.push(str)
+        }
+    }
+
+    return { values, offset }
+}
 
 const Container = styled.div`
     min-height: 100vh;
@@ -195,6 +226,7 @@ export default function Home() {
     // Tree view states (M5)
     const [treeSearch, setTreeSearch] = useState<string>('')
     const [rowsCache, setRowsCache] = useState<Record<string, any[]>>({})
+    const [extRowsCache, setExtRowsCache] = useState<Record<string, { rows: any[]; idColumn: string | null }>>({})
     const [loadingTable, setLoadingTable] = useState<string | null>(null)
     const [selectedExt, setSelectedExt] = useState<{
         table: string;
@@ -302,6 +334,73 @@ export default function Home() {
         maxTx: 50,
         auto: wallet.connected, // auto fetch when connected
     })
+
+    const fetchGlobalTableNames = useCallback(async () => {
+        if (!userPk) {
+            return [] as string[]
+        }
+        try {
+            const endpoint = readData?.meta?.endpoint || configs.network
+            const connection = new Connection(endpoint, 'confirmed')
+            const rootPubkey = pdaRoot(new PublicKey(userPk))
+            const accountInfo = await connection.getAccountInfo(rootPubkey)
+            if (!accountInfo?.data) {
+                return []
+            }
+            const raw = accountInfo.data instanceof Uint8Array ? accountInfo.data : new Uint8Array(accountInfo.data)
+            let offset = 32 // skip creator pubkey
+            const local = decodeVecOfBytesToStrings(raw, offset)
+            const global = decodeVecOfBytesToStrings(raw, local.offset)
+            return global.values
+        } catch (err) {
+            console.error('Failed to load root table names', err)
+            return []
+        }
+    }, [userPk, readData?.meta?.endpoint])
+
+    useEffect(() => {
+        if (!showWriteExtPopup) return
+        const baseTable = tableName.trim()
+        const extSegment = (extNameForWrite || '').trim()
+        const rowSegment = (extRowIdForName || '').trim()
+        if (!baseTable || !extSegment || !rowSegment || !readerIdl || !userPk) {
+            setExtTableReady(false)
+            return
+        }
+        const extTableFullName = `${baseTable}/${rowSegment}/${extSegment}`
+        const endpoint = readData?.meta?.endpoint || configs.network
+        let cancelled = false
+        ;(async () => {
+            try {
+                const connection = new Connection(endpoint, 'confirmed')
+                const tableBytes = new TextEncoder().encode(extTableFullName)
+                const signerPk = new PublicKey(userPk)
+                const extPda = pdaExtTable(signerPk, tableBytes)
+                const info = await connection.getAccountInfo(extPda)
+                if (!cancelled) {
+                    if (info) {
+                        setExtTableReady(true)
+                        return
+                    }
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Failed to check ext table PDA', err)
+                }
+            }
+            try {
+                const globals = await fetchGlobalTableNames()
+                if (!cancelled) {
+                    setExtTableReady(globals.includes(extTableFullName))
+                }
+            } catch {
+                if (!cancelled) setExtTableReady(false)
+            }
+        })()
+        return () => {
+            cancelled = true
+        }
+    }, [showWriteExtPopup, tableName, extNameForWrite, extRowIdForName, readerIdl, userPk, readData?.meta?.endpoint, fetchGlobalTableNames])
 
     // Auto refresh after successful write
     useEffect(() => {
@@ -584,6 +683,9 @@ export default function Home() {
                                                 if (!readerIdl || !userPk || !tableName) return
                                                 setFetchingMeta(true)
                                                 try {
+                                                    const globalTables = await fetchGlobalTableNames()
+                                                    const trimmedTableName = tableName.trim()
+                                                    const knownInRoot = trimmedTableName.length > 0 && globalTables.includes(trimmedTableName)
                                                     const endpoint = readData?.meta?.endpoint
                                                     // Fetch meta + rows together
                                                     const [meta, rows] = await Promise.all([
@@ -616,7 +718,7 @@ export default function Home() {
                                                     console.log('[IQDB] rows for', tableName, rows)
 
                                                     const cols: string[] = (meta?.columns || []).map((c) => String(c).trim()).filter(Boolean)
-                                                    if (cols.length === 0) return
+                                                    if (cols.length === 0 && !knownInRoot) return
 
                                                     // Update KV inputs from columns
                                                     setKvRows((prev) => {
@@ -785,6 +887,7 @@ export default function Home() {
                                                 // reset tree view caches/selections
                                                 setTreeSearch('')
                                                 setRowsCache({})
+                                                setExtRowsCache({})
                                                 setLoadingTable(null)
                                                 setSelectedExt(null)
                                             }}
@@ -849,19 +952,48 @@ export default function Home() {
                                                             const extDefsRaw = extKeysByTable[t] ?? ((meta?.extKeys || meta?.ext_keys) ?? []).map((x: any) => String(x))
                                                             const singleExt = extSingleByTable[t] ?? (meta?.extTableName || meta?.ext_table_name || '').toString().trim()
                                                             const extChildrenFactory = (idx: number, rowIdLabel: string | number) => {
-                                                              const nodes: Array<{ id: string; label: string }> = []
+                                                              const nodes: Array<{ id: string; label: string; items?: any[] }> = []
+                                                              const rowIdStr = String(rowIdLabel)
                                                               if (Array.isArray(extDefsRaw) && extDefsRaw.length > 0) {
-                                                                extDefsRaw.forEach((raw: any, extIdx: number) => {
+                                                                extDefsRaw.forEach((raw: any) => {
                                                                   const rawStr = String(raw)
                                                                   const extKey = deriveExtKeyName(rawStr) || rawStr
-                                                                  const displayLabel = `${t}/${String(rowIdLabel)}/${extKey}`
+                                                                  const displayLabel = `${t}/${rowIdStr}/${extKey}`
                                                                   const nodeId = `ext:${t}:${idx}:key:${encodeURIComponent(rawStr)}:${encodeURIComponent(extKey)}:${encodeURIComponent(displayLabel)}`
-                                                                  nodes.push({ id: nodeId, label: displayLabel })
+                                                                  const extCacheKey = displayLabel
+                                                                  const cached = extRowsCache[extCacheKey]
+                                                                  const parsedDef = parseExtDef(rawStr)
+                                                                  const idColumnHint = cached?.idColumn || parsedDef?.id || 'id'
+                                                                  const childItems = cached && cached.rows.length > 0
+                                                                    ? cached.rows.map((extRow, extIdx) => {
+                                                                        const labelValue = getNormalizedValue(extRow, idColumnHint || undefined) ?? extIdx
+                                                                        const label = String(labelValue)
+                                                                        return {
+                                                                          id: `extrow:${encodeURIComponent(extCacheKey)}:${extIdx}:${encodeURIComponent(label)}`,
+                                                                          label,
+                                                                        }
+                                                                      })
+                                                                    : undefined
+                                                                  nodes.push({ id: nodeId, label: displayLabel, items: childItems })
                                                                 })
                                                               }
                                                               if (singleExt) {
-                                                                const displayLabel = `${t}/${String(rowIdLabel)}/${singleExt}`
-                                                                nodes.push({ id: `ext:${t}:${idx}:single::${encodeURIComponent(singleExt)}:${encodeURIComponent(displayLabel)}`, label: displayLabel })
+                                                                const displayLabel = `${t}/${rowIdStr}/${singleExt}`
+                                                                const nodeId = `ext:${t}:${idx}:single::${encodeURIComponent(singleExt)}:${encodeURIComponent(displayLabel)}`
+                                                                const extCacheKey = displayLabel
+                                                                const cached = extRowsCache[extCacheKey]
+                                                                const idColumnHint = cached?.idColumn || 'id'
+                                                                const childItems = cached && cached.rows.length > 0
+                                                                  ? cached.rows.map((extRow, extIdx) => {
+                                                                      const labelValue = getNormalizedValue(extRow, idColumnHint || undefined) ?? extIdx
+                                                                      const label = String(labelValue)
+                                                                      return {
+                                                                        id: `extrow:${encodeURIComponent(extCacheKey)}:${extIdx}:${encodeURIComponent(label)}`,
+                                                                        label,
+                                                                      }
+                                                                    })
+                                                                  : undefined
+                                                                nodes.push({ id: nodeId, label: displayLabel, items: childItems })
                                                               }
                                                               return nodes.length > 0 ? nodes : undefined
                                                             }
@@ -1062,38 +1194,109 @@ export default function Home() {
                                                                                     effectiveExtName = rawDef || (extDefsList[0] ? deriveExtKeyName(String(extDefsList[0])) || String(extDefsList[0]) : 'extension')
                                                                                   }
                                                                                 }
+                                                                                const rowIdStr = String(rowId)
+                                                                                const extTableFullName = `${table}/${rowIdStr}/${effectiveExtName}`
                                                                                 try {
                                                                                     const endpoint = readData?.meta?.endpoint
-                                                                                    const extRows = await readRowsByTable({
-                                                                                        userPublicKey: userPk,
-                                                                                        idl: readerIdl,
-                                                                                        endpoint,
-                                                                                        programId: (readerIdl as any).address,
-                                                                                        tableName: `${table}/${rowId}/${effectiveExtName}`,
-                                                                                        maxTx: 50,
-                                                                                        perTableLimit: 50,
-                                                                                    })
+                                                                                    const [extRows, extMeta] = await Promise.all([
+                                                                                        readRowsByTable({
+                                                                                            userPublicKey: userPk,
+                                                                                            idl: readerIdl,
+                                                                                            endpoint,
+                                                                                            programId: (readerIdl as any).address,
+                                                                                            tableName: extTableFullName,
+                                                                                            maxTx: 50,
+                                                                                            perTableLimit: 50,
+                                                                                        }),
+                                                                                        (async () => {
+                                                                                            try {
+                                                                                                return await readTableMeta({
+                                                                                                    userPublicKey: userPk,
+                                                                                                    idl: readerIdl,
+                                                                                                    endpoint,
+                                                                                                    programId: (readerIdl as any).address,
+                                                                                                    tableName: extTableFullName,
+                                                                                                })
+                                                                                            } catch {
+                                                                                                return null
+                                                                                            }
+                                                                                        })(),
+                                                                                    ])
                                                                                     const normalizedRows = Array.isArray(extRows) ? extRows : []
+                                                                                    const idColumnFromMeta = (() => {
+                                                                                        if (!extMeta) return null
+                                                                                        const metaId = (extMeta as any)?.idColumn
+                                                                                        if (typeof metaId === 'string') return metaId
+                                                                                        if (typeof metaId === 'number') {
+                                                                                            const colsArr = Array.isArray(extMeta?.columns) ? extMeta?.columns : []
+                                                                                            if (colsArr && colsArr[metaId]) return String(colsArr[metaId])
+                                                                                        }
+                                                                                        if (Array.isArray(extMeta?.columns) && extMeta.columns[0]) {
+                                                                                            return String(extMeta.columns[0])
+                                                                                        }
+                                                                                        return null
+                                                                                    })()
+                                                                                    const parsedDef = parseExtDef(rawDef)
+                                                                                    const fallbackIdColumn = parsedDef?.id || 'id'
+                                                                                    const idColumnName = idColumnFromMeta || fallbackIdColumn
+                                                                                    setExtRowsCache((prev) => ({
+                                                                                        ...prev,
+                                                                                        [extTableFullName]: { rows: normalizedRows, idColumn: idColumnName || null },
+                                                                                    }))
                                                                                     setSelectedExt({
                                                                                         table,
                                                                                         rowId,
                                                                                         name: effectiveExtName,
-                                                                                        path: displayLabel || `${table}/${rowId}/${effectiveExtName}`,
+                                                                                        path: displayLabel || extTableFullName,
                                                                                         data: normalizedRows.length > 0
                                                                                             ? normalizedRows
                                                                                             : [{ message: `${effectiveExtName} is not added for this row.` }]
                                                                                     })
+                                                                                    setExpandedNodes((prev) =>
+                                                                                        prev.includes(id as string) ? prev : [...prev, id as string]
+                                                                                    )
                                                                                 } catch (e: any) {
                                                                                     console.error('read ext table failed', e)
                                                                                     const fallbackName = effectiveExtName || deriveExtKeyName(rawDef) || singleExtName || 'extension'
+                                                                                    const parsedDef = parseExtDef(rawDef)
+                                                                                    const fallbackIdColumn = parsedDef?.id || 'id'
+                                                                                    setExtRowsCache((prev) => ({
+                                                                                        ...prev,
+                                                                                        [extTableFullName]: prev[extTableFullName] ?? { rows: [], idColumn: fallbackIdColumn },
+                                                                                    }))
                                                                                     setSelectedExt({
                                                                                         table,
                                                                                         rowId,
                                                                                         name: fallbackName,
-                                                                                        path: displayLabel || `${table}/${rowId}/${fallbackName}`,
+                                                                                        path: displayLabel || `${table}/${rowIdStr}/${fallbackName}`,
                                                                                         data: [{ message: `${fallbackName} is not added for this row.` }]
                                                                                     })
                                                                                 }
+                                                                            } else if (kind === 'extrow') {
+                                                                                const encodedPath = parts[1] || ''
+                                                                                const extPath = decodeURIComponent(encodedPath)
+                                                                                const extRowIdx = Number(parts[2])
+                                                                                const labelEncoded = parts.length > 3 ? parts[3] : ''
+                                                                                const label = labelEncoded ? decodeURIComponent(labelEncoded) : ''
+                                                                                const cacheEntry = extRowsCache[extPath]
+                                                                                if (!cacheEntry) return
+                                                                                const rows = Array.isArray(cacheEntry.rows) ? cacheEntry.rows : []
+                                                                                const pickedRow = Number.isFinite(extRowIdx) && extRowIdx >= 0 && extRowIdx < rows.length ? rows[extRowIdx] : null
+                                                                                const pathParts = extPath.split('/')
+                                                                                const baseTable = pathParts[0] || ''
+                                                                                const baseRowId = pathParts[1] || ''
+                                                                                const extNameSegment = pathParts.slice(2).join('/') || 'extension'
+                                                                                const idColumnName = cacheEntry.idColumn || 'id'
+                                                                                const displayRows = pickedRow ? [pickedRow] : rows
+                                                                                setSelectedExt({
+                                                                                    table: baseTable,
+                                                                                    rowId: label || baseRowId || extRowIdx,
+                                                                                    name: extNameSegment,
+                                                                                    path: extPath,
+                                                                                    data: displayRows.length > 0
+                                                                                        ? displayRows
+                                                                                        : [{ message: `${extNameSegment} is not added for this row.` }]
+                                                                                })
                                                                             }
                                                                         }}
                                                                         onNodeToggle={(_e, ids) => setExpandedNodes(ids)}
@@ -1148,7 +1351,7 @@ export default function Home() {
 
                                             <ScrollView
                                                 style={{marginTop: 8, height: 280, paddingRight: 6}}>
-                                                <div>
+                                                <div style={{height: '100%', overflow: 'auto'}}>
                                                     {/* EXT selection preview */}
                                                     {selectedExt ? (
                                                         <div style={{
@@ -1488,6 +1691,9 @@ export default function Home() {
                                         if (!readerIdl || !userPk || !tableName) return
                                         setManageFetching(true)
                                         try {
+                                            const globalTables = await fetchGlobalTableNames()
+                                            const trimmedName = tableName.trim()
+                                            const knownInRoot = trimmedName.length > 0 && globalTables.includes(trimmedName)
                                             const endpoint = readData?.meta?.endpoint
                                             const meta = await readTableMeta({
                                                 userPublicKey: userPk,
@@ -1498,7 +1704,7 @@ export default function Home() {
                                             })
 
                                             const cols = (meta?.columns || []).map((c: any) => String(c).trim()).filter(Boolean)
-                                            setManageExisting(cols.length > 0)
+                                            setManageExisting(cols.length > 0 || knownInRoot)
                                             setManageCols(cols.length > 0 ? cols : [])
                                             // Resolve id column name
                                             const metaId = (meta as any)?.idColumn
@@ -1508,6 +1714,8 @@ export default function Home() {
                                               setIdColumnName(cols[metaId])
                                             } else if (cols[0]) {
                                               setIdColumnName(cols[0])
+                                            } else {
+                                              setIdColumnName('')
                                             }
 
                                             const extKeys = ((meta as any)?.extKeys || (meta as any)?.ext_keys || []) as any[]
@@ -1761,7 +1969,7 @@ export default function Home() {
                             })
                           ) : (
                             <TableRow>
-                              <TableDataCell colSpan={2}>
+                              <TableDataCell>
                                 <div style={{ color: '#888' }}>No extension columns parsed.</div>
                               </TableDataCell>
                             </TableRow>

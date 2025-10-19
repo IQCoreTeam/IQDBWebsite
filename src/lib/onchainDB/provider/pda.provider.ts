@@ -94,3 +94,15 @@ export function pdaExternalRecordFromStrings(
     Buffer.from(extTableName, "utf8")
   );
 }
+
+export function pdaExtTable(signer: PublicKey, tableNameBytes: Uint8Array) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("iqdb-ext-table"),
+      PROGRAM_ID.toBuffer(),
+      signer.toBuffer(),
+      Buffer.from(tableNameBytes),
+    ],
+    PROGRAM_ID
+  )[0];
+}
