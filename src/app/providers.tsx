@@ -37,6 +37,7 @@ const GlobalStyles = createGlobalStyle`
     margin: 0;
     padding: 0;
   }
+  
 `
 
 export function Providers({ children }: { children: React.ReactNode }) {

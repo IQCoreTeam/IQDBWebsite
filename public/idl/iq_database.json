@@ -8,6 +8,212 @@
   },
   "instructions": [
     {
+      "name": "create_ext_table",
+      "discriminator": [
+        55,
+        34,
+        201,
+        171,
+        160,
+        153,
+        73,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  101,
+                  120,
+                  116,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "arg",
+                "path": "table_name"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  101,
+                  120,
+                  116,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "arg",
+                "path": "table_name"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  115,
+                  116,
+                  114,
+                  117,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
       "name": "create_table",
       "discriminator": [
         214,
@@ -252,6 +458,16 @@
         },
         {
           "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
           "type": {
             "vec": "bytes"
           }
@@ -566,14 +782,6 @@
           "type": "bytes"
         },
         {
-          "name": "mode",
-          "type": {
-            "defined": {
-              "name": "EditMode"
-            }
-          }
-        },
-        {
           "name": "target_tx",
           "type": "bytes"
         },
@@ -811,6 +1019,96 @@
       "args": []
     },
     {
+      "name": "update_root_table_list",
+      "discriminator": [
+        134,
+        184,
+        121,
+        218,
+        28,
+        99,
+        159,
+        216
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_table_names",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
       "name": "update_table",
       "discriminator": [
         224,
@@ -965,6 +1263,16 @@
         },
         {
           "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
           "type": {
             "vec": "bytes"
           }
@@ -1293,23 +1601,19 @@
       "code": 6008,
       "name": "Overflow",
       "msg": "Overflow"
+    },
+    {
+      "code": 6009,
+      "name": "EmptyIdCol",
+      "msg": "ID column is required"
+    },
+    {
+      "code": 6010,
+      "name": "IdColNotInColumns",
+      "msg": "ID column must exist in column_names"
     }
   ],
   "types": [
-    {
-      "name": "EditMode",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Update"
-          },
-          {
-            "name": "Delete"
-          }
-        ]
-      }
-    },
     {
       "name": "InstructionTable",
       "type": {
@@ -1347,6 +1651,16 @@
         "fields": [
           {
             "name": "column_names",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "id_col",
+            "type": "bytes"
+          },
+          {
+            "name": "ext_keys",
             "type": {
               "vec": "bytes"
             }

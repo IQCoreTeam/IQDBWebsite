@@ -5,8 +5,8 @@
 export { configs } from './configs'
 
 // Import locally so we can use them in this module (e.g., inside getPdas)
-import { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable } from './provider/pda.provider'
-export { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable }
+import { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings } from './provider/pda.provider'
+export { pdaRoot, pdaTxRef, pdaTargetTxRef, pdaTable, pdaInstructionTable, pdaExternalRecord, pdaExternalRecordFromStrings }
 
 // Web reader API (UI-friendly)
 export type { ReaderParams, ReaderResult, Row } from './web/reader'
@@ -17,6 +17,7 @@ export type { EditMode, WriterCtx } from './web/writer'
 export {
   initializeRootWeb,
   createTableWeb,
+  createExtTableWeb,
   updateTableColumnsWeb,
   writeRowWeb,
   pushDbInstructionWeb,

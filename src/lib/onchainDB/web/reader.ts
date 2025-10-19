@@ -36,8 +36,17 @@ export type ReaderResult = {
   }
   // Table names if available
   tableNames: string[]
-  // Tables meta (columns and PDA strings)
-  tables: Record<string, { columns: string[]; tablePda: string; instPda: string | null }>
+  // Tables meta (columns, id/ext info and PDA strings)
+  tables: Record<
+    string,
+    {
+      columns: string[]
+      idColumn?: string | number | null
+      extTableName?: string | null
+      tablePda: string
+      instPda: string | null
+    }
+  >
   // Rows keyed by table
   rowsByTable: Record<string, Row[]>
 }
@@ -234,8 +243,62 @@ export async function readRecentRows(params: ReaderParams): Promise<ReaderResult
     }
   }
 
-  // With IDL: read only table list from root (no per-table account reads here)
+  // With IDL: read table list from root and build tables metadata
   const { tableNames } = await readTableListFromRoot(connection, idl, user)
+  const accCoder = makeAccountsCoder(idl)
+  const tables: ReaderResult['tables'] = {}
+
+  for (const name of tableNames) {
+    const seed = enc.encode(name)
+    const tablePda = pdaTable(root, seed)
+    const instPda = pdaInstructionTable(root, seed)
+    let columns: string[] = []
+    let idColumn: string | number | null | undefined = undefined
+    let extTableName: string | null | undefined = undefined
+
+    try {
+      const tableAcc = await fetchAndDecode<any>(connection, accCoder, tablePda, 'Table')
+      if (tableAcc) {
+        columns = (tableAcc.column_names ?? tableAcc.columns ?? []).map((v: any) => toStr(v))
+        // idColumn: try multiple keys, accept string or number
+        const idRaw =
+          tableAcc.id_column ??
+          tableAcc.idColumn ??
+          tableAcc.id_index ??
+          tableAcc.idIndex ??
+          null
+        if (typeof idRaw === 'string') {
+          idColumn = idRaw
+        } else if (typeof idRaw === 'number') {
+          idColumn = idRaw
+        } else if (idRaw && typeof idRaw === 'object') {
+          // bytes → string
+          const s = toStr(idRaw)
+          idColumn = s || null
+        } else {
+          idColumn = null
+        }
+        // extTableName: try multiple keys and cast to string
+        const extRaw = tableAcc.ext_table_name ?? tableAcc.extTableName ?? null
+        extTableName = extRaw != null ? toStr(extRaw) : null
+      }
+    } catch {
+      // best-effort
+    }
+
+    // default: first column as id if not provided
+    if ((idColumn == null || idColumn === '') && columns.length > 0) {
+      idColumn = columns[0]
+    }
+
+    tables[name] = {
+      columns,
+      idColumn,
+      extTableName,
+      tablePda: tablePda.toBase58(),
+      instPda: instPda ? instPda.toBase58() : null,
+    }
+  }
 
   return {
     meta: {
@@ -245,7 +308,7 @@ export async function readRecentRows(params: ReaderParams): Promise<ReaderResult
       endpoint,
     },
     tableNames,
-    tables: {},
+    tables,
     rowsByTable: {}, // rows are fetched on-demand per table
   }
 }
@@ -267,6 +330,22 @@ export async function readRowsByTable(
   const perTableLimit = params.perTableLimit
 
   if (!idl) return []
+
+  // fetch meta for id/ext info
+  let idColumnName: string | undefined
+  try {
+    const meta = await readTableMeta({ ...params, connection })
+    if (typeof meta.idColumn === 'string') {
+      idColumnName = meta.idColumn
+    } else if (typeof meta.idColumn === 'number' && meta.columns?.[meta.idColumn]) {
+      idColumnName = meta.columns[meta.idColumn]
+    }
+    if (!idColumnName && meta.columns && meta.columns.length > 0) {
+      idColumnName = meta.columns[0]
+    }
+  } catch {
+    // ignore, best-effort
+  }
 
   // Derive PDAs (pure computation, no network read)
   const rootPda = pdaRoot(user)
@@ -301,13 +380,23 @@ export async function readRowsByTable(
           if (nameInIx !== tableName) continue
           const payloadStr =
             toStr(d.data.row_json_tx ?? d.data.rowJsonTx ?? d.data[1])
-          rows.push(tryParseJsonLoose(payloadStr))
+          const parsed = tryParseJsonLoose(payloadStr)
+          if (idColumnName && parsed && parsed.id == null && Object.prototype.hasOwnProperty.call(parsed, idColumnName)) {
+            rows.push({ id: (parsed as any)[idColumnName], ...parsed })
+          } else {
+            rows.push(parsed)
+          }
         } else if (d.name === 'database_instruction') {
           const nameInIx = toStr(d.data.table_name ?? d.data[0])
           if (nameInIx !== tableName) continue
           const contentStr =
             toStr(d.data.contentJsonTx ?? d.data.content_json_tx ?? d.data[3])
-          rows.push(tryParseJsonLoose(contentStr))
+          const parsed = tryParseJsonLoose(contentStr)
+          if (idColumnName && parsed && parsed.id == null && Object.prototype.hasOwnProperty.call(parsed, idColumnName)) {
+            rows.push({ id: (parsed as any)[idColumnName], ...parsed })
+          } else {
+            rows.push(parsed)
+          }
         }
       } catch {
         // skip decode errors
@@ -318,38 +407,66 @@ export async function readRowsByTable(
   return perTableLimit ? rows.slice(0, perTableLimit) : rows
 }
 
-/**
- * readTableMeta
- * - 지정한 테이블 이름의 컬럼 메타와 PDA(base58)를 반환
- * - root를 재조회하지 않고 user + tableName으로 PDA를 계산하고,
- *   Table 계정을 디코딩하여 column_names만 읽습니다.
- */
+
 export async function readTableMeta(
   params: ReaderParams & { tableName: string }
-): Promise<{ columns: string[]; tablePda: string; instPda: string | null }> {
+): Promise<{ columns: string[]; idColumn?: string | number | null; extTableName?: string | null; extKeys?: string[]; tablePda: string; instPda: string | null }> {
   const endpoint = params.endpoint || configs.network
   const connection = params.connection || new Connection(endpoint, 'confirmed')
   const user = new PublicKey(params.userPublicKey)
   const idl = params.idl
   const tableName = params.tableName
 
-  // PDA 계산(순수 연산)
   const rootPda = pdaRoot(user)
   const seed = new TextEncoder().encode(tableName)
   const tablePda = pdaTable(rootPda, seed)
   const instPda = pdaInstructionTable(rootPda, seed)
 
   if (!idl) {
-    return { columns: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+    return { columns: [], idColumn: null, extTableName: null, extKeys: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
   }
 
-  // Table 계정에서 columns 메타만 디코딩
   const accCoder = makeAccountsCoder(idl)
   try {
     const tableAcc = await fetchAndDecode<any>(connection, accCoder, tablePda, 'Table')
-    const columns = tableAcc ? (tableAcc.column_names ?? []).map((v: any) => toStr(v)) : []
-    return { columns, tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+    const columns = tableAcc ? (tableAcc.column_names ?? tableAcc.columns ?? []).map((v: any) => toStr(v)) : []
+    // Try multiple key candidates for id/ext
+    let idColumn: string | number | null | undefined = null
+    let extTableName: string | null | undefined = null
+    let extKeys: string[] = []
+
+    const idRaw =
+      tableAcc?.id_column ??
+      tableAcc?.idColumn ??
+      tableAcc?.id_index ??
+      tableAcc?.idIndex ??
+      null
+    if (typeof idRaw === 'string') {
+      idColumn = idRaw
+    } else if (typeof idRaw === 'number') {
+      idColumn = idRaw
+    } else if (idRaw && typeof idRaw === 'object') {
+      const s = toStr(idRaw)
+      idColumn = s || null
+    } else {
+      idColumn = null
+    }
+
+    const extRaw = tableAcc?.ext_table_name ?? tableAcc?.extTableName ?? null
+    extTableName = extRaw != null ? toStr(extRaw) : null
+
+    const extKeysRaw = tableAcc?.ext_keys ?? tableAcc?.extKeys ?? []
+    if (Array.isArray(extKeysRaw)) {
+      extKeys = extKeysRaw.map((v: any) => toStr(v)).filter((s: string) => s.length > 0)
+    }
+
+    // default: if idColumn missing, fallback to first column name
+    if ((idColumn == null || idColumn === '') && columns.length > 0) {
+      idColumn = columns[0]
+    }
+
+    return { columns, idColumn, extTableName, extKeys, tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
   } catch {
-    return { columns: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
+    return { columns: [], idColumn: null, extTableName: null, extKeys: [], tablePda: tablePda.toBase58(), instPda: instPda ? instPda.toBase58() : null }
   }
 }

@@ -26,18 +26,9 @@ const Label = styled.label`
   font-size: 12px;
 `
 
-// const Input = styled.input`
-//   flex: 1;
-//   background: #001100;
-//   color: #00ff00;
-//   border: 1px solid #00aa00;
-//   padding: 6px 8px;
-//   font-size: 12px;
-// `
-
 const TextArea = styled.textarea`
   width: 100%;
-  min-height: 90px;
+  min-height: 120px;
   background: #001100;
   color: #00ff00;
   border: 1px solid #00aa00;
@@ -88,7 +79,10 @@ export default function WriterWindow({ open, onClose }: Props) {
 
   const [tableName, setTableName] = useState('youtube')
   const [columns, setColumns] = useState('name,session_pda')
+  const [idColumn, setIdColumn] = useState<string>('')
+  const [extTableName, setExtTableName] = useState<string>('')
   const [rowJson, setRowJson] = useState(`{ "name": "cat_meme", "session_pda": "xxxxx" }`)
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Auto-load IDL when wallet connects
   useEffect(() => {
@@ -97,31 +91,60 @@ export default function WriterWindow({ open, onClose }: Props) {
     }
   }, [open, wallet.connected, loadIdl])
 
+  // set the default ID column if not set
+  useEffect(() => {
+    const cols = columns
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (!idColumn || (idColumn && !cols.includes(idColumn))) {
+      setIdColumn(cols[0] || '')
+    }
+  }, [columns]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const canUse = useMemo(() => wallet.connected && ready, [wallet.connected, ready])
 
   if (!open) return null
 
   const onClickInit = async () => {
+    setFormError(null)
     await initializeRoot()
   }
 
   const onClickCreate = async () => {
+    setFormError(null)
     const cols = columns
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
-    if (!tableName || cols.length === 0) return
-    await createTable(tableName, cols)
+    if (!tableName || cols.length === 0) {
+      setFormError('Please Write the Table name and Columns')
+      return
+    }
+    if (!idColumn) {
+      setFormError('Please set the ID Column . (Default: first column)')
+      return
+    }
+    await createTable(tableName, cols, { idColumn, extTableName: extTableName || null })
   }
 
   const onClickWrite = async () => {
-    if (!tableName || !rowJson) return
+    setFormError(null)
+    if (!tableName || !rowJson) {
+      setFormError('Enter The Table name Row JSON.')
+      return
+    }
     let parsed: Record<string, any>
     try {
       parsed = JSON.parse(rowJson)
     } catch {
       // Allow loose JSON by wrapping as string
       parsed = { value: rowJson }
+    }
+
+    if (idColumn && !(idColumn in parsed)) {
+      setFormError(` "${idColumn}" field is required in the row JSON.`)
+      return
     }
     await writeRow(tableName, parsed)
   }
@@ -130,7 +153,7 @@ export default function WriterWindow({ open, onClose }: Props) {
     <DraggableWindow
       title="writer.exe"
       initialPosition={{ x: 160, y: 180 }}
-      width={520}
+      width={560}
       onClose={onClose}
       zIndex={10000} // keep under wallet dialog
     >
@@ -164,12 +187,33 @@ export default function WriterWindow({ open, onClose }: Props) {
         />
       </Row>
 
+      <Row>
+        <Label htmlFor="idColumn">ID Column</Label>
+        <TextInput
+          id="idColumn"
+          placeholder="e.g. name"
+          value={idColumn}
+          onChange={(e) => setIdColumn(e.target.value)}
+        />
+      </Row>
+
+      <Row>
+        <Label htmlFor="extTable">External table</Label>
+        <TextInput
+          id="extTable"
+          placeholder="e.g. expiration_date (optional)"
+          value={extTableName}
+          onChange={(e) => setExtTableName(e.target.value)}
+        />
+      </Row>
+
       <div style={{ marginBottom: 8 }}>
         <Label>Row JSON</Label>
-
-
-          <TextInput   placeholder='{"name":"cat_meme","session_pda":"xxxxx"}'  />
-
+        <TextArea
+          placeholder='{"name":"cat_meme","session_pda":"xxxxx"}'
+          value={rowJson}
+          onChange={(e) => setRowJson(e.target.value)}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -184,6 +228,7 @@ export default function WriterWindow({ open, onClose }: Props) {
         </Button>
       </div>
 
+      {formError ? <ErrorText>⚠ {formError}</ErrorText> : null}
       {error ? <ErrorText>⚠ {error}</ErrorText> : null}
       {lastSignature ? <SigText>✅ Signature: {lastSignature}</SigText> : null}
     </DraggableWindow>
