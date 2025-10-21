@@ -13,7 +13,7 @@ export type { ReaderParams, ReaderResult, Row } from './web/reader'
 export { readRecentRows, readRowsByTable, readTableMeta } from './web/reader'
 
 // Web writer API (wallet-adapter + Anchor Program)
-export type { EditMode, WriterCtx } from './web/writer'
+export type { WriterCtx } from './web/writer'
 export {
   initializeRootWeb,
   createTableWeb,

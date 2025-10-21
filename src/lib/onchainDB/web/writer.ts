@@ -3,6 +3,7 @@
 import type { Idl, Program } from '@coral-xyz/anchor'
 import { Connection, PublicKey, SystemProgram } from '@solana/web3.js'
 import { configs } from '../configs'
+import { deriveSeedBytes } from '../core/seed'
 import { getAnchorProvider, getProgram, type WalletAdapterLike } from './provider'
 
 const enc = new TextEncoder()
@@ -32,43 +33,47 @@ function pdaTargetTxRefDyn(programId: PublicKey, signer: PublicKey) {
     programId
   )[0]
 }
-function pdaTableDyn(programId: PublicKey, rootPk: PublicKey, tableNameBytes: Uint8Array) {
+function pdaTableDyn(programId: PublicKey, rootPk: PublicKey, tableName: string) {
+  const tableSeed = deriveSeedBytes(tableName)
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('iqdb-table'), programId.toBuffer(), rootPk.toBuffer(), Buffer.from(tableNameBytes)],
+    [Buffer.from('iqdb-table'), programId.toBuffer(), rootPk.toBuffer(), Buffer.from(tableSeed)],
     programId
   )[0]
 }
-function pdaInstructionTableDyn(programId: PublicKey, rootPk: PublicKey, tableNameBytes: Uint8Array) {
+function pdaInstructionTableDyn(programId: PublicKey, rootPk: PublicKey, tableName: string) {
+  const tableSeed = deriveSeedBytes(tableName)
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from('iqdb-table'),
       programId.toBuffer(),
       rootPk.toBuffer(),
-      Buffer.from(tableNameBytes),
+      Buffer.from(tableSeed),
       Buffer.from('instruction'),
     ],
     programId
   )[0]
 }
 
-function pdaExtTableDyn(programId: PublicKey, signer: PublicKey, tableNameBytes: Uint8Array) {
+function pdaExtTableDyn(programId: PublicKey, rootPk: PublicKey, tableName: string) {
+  const tableNameBytes = deriveSeedBytes(tableName)
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from('iqdb-ext-table'),
+      Buffer.from('iqdb-table'),
       programId.toBuffer(),
-      signer.toBuffer(),
+      rootPk.toBuffer(),
       Buffer.from(tableNameBytes),
     ],
     programId
   )[0]
 }
 
-function pdaExtInstructionTableDyn(programId: PublicKey, signer: PublicKey, tableNameBytes: Uint8Array) {
+function pdaExtInstructionTableDyn(programId: PublicKey, rootPk: PublicKey, tableName: string) {
+  const tableNameBytes = deriveSeedBytes(tableName)
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from('iqdb-ext-table'),
+      Buffer.from('iqdb-table'),
       programId.toBuffer(),
-      signer.toBuffer(),
+      rootPk.toBuffer(),
       Buffer.from(tableNameBytes),
       Buffer.from('instruction'),
     ],
@@ -139,9 +144,8 @@ export async function createTableWeb<T extends Idl>(
 
   // Derive PDAs from IDL.address
   const root = pdaRootDyn(programId, signer)
-  const seed = enc.encode(tableName)
-  const table = pdaTableDyn(programId, root, seed)
-  const instTable = pdaInstructionTableDyn(programId, root, seed)
+  const table = pdaTableDyn(programId, root, tableName)
+  const instTable = pdaInstructionTableDyn(programId, root, tableName)
 
   const methods = (program as any).methods as Record<string, any>
   const create = methods?.create_table ?? methods?.createTable
@@ -150,6 +154,8 @@ export async function createTableWeb<T extends Idl>(
   }
 
   // IDL args: (table_name: bytes, column_names: Vec<bytes>, id_col: bytes, ext_keys: Vec<bytes>)
+  const tableSeed = deriveSeedBytes(tableName)
+  const tableSeedBuf = Buffer.from(tableSeed)
   const nameBuf = Buffer.from(tableName, 'utf8')
   const colBufs = columnNames.map((s) => Buffer.from(s, 'utf8'))
 
@@ -167,7 +173,7 @@ export async function createTableWeb<T extends Idl>(
   const extKeys = options?.extKeys ?? []
   const extKeysBufs = extKeys.map((s) => Buffer.from(String(s), 'utf8'))
 
-  const tx = await create(nameBuf, colBufs, idColBuf, extKeysBufs)
+  const tx = await create(tableSeedBuf, nameBuf, colBufs, idColBuf, extKeysBufs)
     .accounts({
       root,
       signer,
@@ -190,9 +196,9 @@ export async function createExtTableWeb<T extends Idl>(
   const signer = program.provider.publicKey!
   const programId = programPkFromCtx(ctx)
 
-  const seed = enc.encode(tableName)
-  const table = pdaExtTableDyn(programId, signer, seed)
-  const instTable = pdaExtInstructionTableDyn(programId, signer, seed)
+  const root = pdaRootDyn(programId, signer)
+  const table = pdaExtTableDyn(programId, root, tableName)
+  const instTable = pdaExtInstructionTableDyn(programId, root, tableName)
 
   const methods = (program as any).methods as Record<string, any>
   const createExt = methods?.create_ext_table ?? methods?.createExtTable
@@ -200,6 +206,8 @@ export async function createExtTableWeb<T extends Idl>(
     throw new Error('Instruction "create_ext_table" not found in IDL')
   }
 
+  const tableSeed = deriveSeedBytes(tableName)
+  const tableSeedBuf = Buffer.from(tableSeed)
   const nameBuf = Buffer.from(tableName, 'utf8')
   const colBufs = columnNames.map((s) => Buffer.from(s, 'utf8'))
 
@@ -216,8 +224,9 @@ export async function createExtTableWeb<T extends Idl>(
   const extKeys = options?.extKeys ?? []
   const extKeysBufs = extKeys.map((s) => Buffer.from(String(s), 'utf8'))
 
-  const tx = await createExt(nameBuf, colBufs, idColBuf, extKeysBufs)
+  const tx = await createExt(tableSeedBuf, nameBuf, colBufs, idColBuf, extKeysBufs)
     .accounts({
+      root,
       signer,
       table,
       instruction_table: instTable,
@@ -245,8 +254,7 @@ export async function updateTableColumnsWeb<T extends Idl>(
   const programId = programPkFromCtx(ctx)
 
   const root = pdaRootDyn(programId, signer)
-  const seed = enc.encode(tableName)
-  const table = pdaTableDyn(programId, root, seed)
+  const table = pdaTableDyn(programId, root, tableName)
 
   const methods = (program as any).methods as Record<string, any>
   const upd = methods?.update_table ?? methods?.updateTable
@@ -254,6 +262,8 @@ export async function updateTableColumnsWeb<T extends Idl>(
     throw new Error('Instruction "update_table" not found in IDL')
   }
 
+  const tableSeed = deriveSeedBytes(tableName)
+  const tableSeedBuf = Buffer.from(tableSeed)
   const nameBuf = Buffer.from(tableName, 'utf8')
   const colBufs = columnNames.map((s) => Buffer.from(s, 'utf8'))
   const idOpt = options?.idColumn
@@ -269,7 +279,7 @@ export async function updateTableColumnsWeb<T extends Idl>(
   const extKeys = options?.extKeys ?? []
   const extKeysBufs = extKeys.map((s) => Buffer.from(String(s), 'utf8'))
 
-  const tx = await upd(nameBuf, colBufs, idColBuf, extKeysBufs)
+  const tx = await upd(tableSeedBuf, nameBuf, colBufs, idColBuf, extKeysBufs)
     .accounts({
       root,
       table,
@@ -294,8 +304,7 @@ export async function writeRowWeb<T extends Idl>(
   const programId = programPkFromCtx(ctx)
   const root = pdaRootDyn(programId, signer)
   const txRef = pdaTxRefDyn(programId, signer)
-  const seed = enc.encode(tableName)
-  const table = pdaTableDyn(programId, root, seed)
+  const table = pdaTableDyn(programId, root, tableName)
 
   const methods = (program as any).methods as Record<string, any>
   const write = methods?.write_data ?? methods?.writeData
@@ -303,7 +312,10 @@ export async function writeRowWeb<T extends Idl>(
     throw new Error('Instruction "write_data" not found in IDL')
   }
 
-  const tx = await write(Buffer.from(tableName, 'utf8'), Buffer.from(rowJson, 'utf8'))
+  const tableSeed = deriveSeedBytes(tableName)
+  const tableSeedBuf = Buffer.from(tableSeed)
+  const nameBuf = Buffer.from(tableName, 'utf8')
+  const tx = await write(tableSeedBuf, nameBuf, Buffer.from(rowJson, 'utf8'))
     .accounts({
       root,
       table,
@@ -315,11 +327,6 @@ export async function writeRowWeb<T extends Idl>(
   return { tx }
 }
 
-export type EditMode = 'update' | 'delete'
-function enumEditMode(mode: EditMode): any {
-  return mode === 'update' ? { update: {} } : { delete: {} }
-}
-
 /**
  * pushDbInstructionWeb
  * - Append update/delete instruction row for a given table
@@ -327,7 +334,6 @@ function enumEditMode(mode: EditMode): any {
 export async function pushDbInstructionWeb<T extends Idl>(
   ctx: WriterCtx<T>,
   tableName: string,
-  mode: EditMode,
   targetTxSig: string,
   contentJson: string
 ) {
@@ -337,8 +343,7 @@ export async function pushDbInstructionWeb<T extends Idl>(
   const root = pdaRootDyn(programId, signer)
   const txRef = pdaTxRefDyn(programId, signer)
   const targetTxRef = pdaTargetTxRefDyn(programId, signer)
-  const seed = enc.encode(tableName)
-  const instTable = pdaInstructionTableDyn(programId, root, seed)
+  const instTable = pdaInstructionTableDyn(programId, root, tableName)
 
   const methods = (program as any).methods as Record<string, any>
   const dbInstr = methods?.database_instruction ?? methods?.databaseInstruction
@@ -346,12 +351,13 @@ export async function pushDbInstructionWeb<T extends Idl>(
     throw new Error('Instruction "database_instruction" not found in IDL')
   }
 
-  const tx = await dbInstr(
-      Array.from(enc.encode(tableName)),
-      enumEditMode(mode),
-      Array.from(enc.encode(targetTxSig)),
-      Array.from(enc.encode(contentJson))
-    )
+  const tableSeedBytes = deriveSeedBytes(tableName)
+  const tableSeedBuf = Buffer.from(tableSeedBytes)
+  const tableNameBuf = Buffer.from(tableName, 'utf8')
+  const targetSigBuf = Buffer.from(targetTxSig, 'utf8')
+  const contentBuf = Buffer.from(contentJson, 'utf8')
+
+  const tx = await dbInstr(tableSeedBuf, tableNameBuf, targetSigBuf, contentBuf)
     .accounts({
       root,
       instruction_table: instTable,

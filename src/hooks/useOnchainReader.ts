@@ -34,7 +34,7 @@ export type UseOnchainReaderState = {
 }
 
 /** Resolve endpoint string based on selected network and optional custom endpoint. */
-function resolveEndpoint(network: Net = 'devnet', endpoint?: string) {
+function resolveEndpoint(network: Net = 'custom', endpoint: string="https://devnet.helius-rpc.com/?api-key=fbb113ce-eeb4-4277-8c44-7153632d175a") {
   if (network === 'devnet') return clusterApiUrl('devnet')
   if (network === 'mainnet-beta') return clusterApiUrl('mainnet-beta')
   if (network === 'custom' && endpoint) return endpoint
@@ -65,7 +65,7 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 3, delayMs = 600):
 export function useOnchainReader(opts: UseOnchainReaderOptions): UseOnchainReaderState {
   const {
     userPublicKey,
-    network = 'devnet',
+    network = 'custom',
     endpoint,
     idlUrl = '/idl/iq_database.json',
     maxTx,

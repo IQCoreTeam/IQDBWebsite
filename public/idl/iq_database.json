@@ -101,10 +101,6 @@
                   100,
                   98,
                   45,
-                  101,
-                  120,
-                  116,
-                  45,
                   116,
                   97,
                   98,
@@ -151,11 +147,11 @@
               },
               {
                 "kind": "account",
-                "path": "signer"
+                "path": "root"
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               }
             ]
           }
@@ -173,10 +169,6 @@
                   100,
                   98,
                   45,
-                  101,
-                  120,
-                  116,
-                  45,
                   116,
                   97,
                   98,
@@ -223,11 +215,11 @@
               },
               {
                 "kind": "account",
-                "path": "signer"
+                "path": "root"
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               },
               {
                 "kind": "const",
@@ -254,6 +246,10 @@
         }
       ],
       "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
         {
           "name": "table_name",
           "type": "bytes"
@@ -420,7 +416,7 @@
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               }
             ]
           }
@@ -488,7 +484,7 @@
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               },
               {
                 "kind": "const",
@@ -515,6 +511,10 @@
         }
       ],
       "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
         {
           "name": "table_name",
           "type": "bytes"
@@ -674,7 +674,7 @@
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               },
               {
                 "kind": "const",
@@ -840,6 +840,10 @@
         }
       ],
       "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
         {
           "name": "table_name",
           "type": "bytes"
@@ -1164,7 +1168,7 @@
       ],
       "args": [
         {
-          "name": "new_table_names",
+          "name": "new_table_seeds",
           "type": {
             "vec": "bytes"
           }
@@ -1309,7 +1313,7 @@
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               }
             ]
           }
@@ -1320,6 +1324,10 @@
         }
       ],
       "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
         {
           "name": "table_name",
           "type": "bytes"
@@ -1479,7 +1487,7 @@
               },
               {
                 "kind": "arg",
-                "path": "table_name"
+                "path": "table_seed"
               }
             ]
           }
@@ -1554,6 +1562,10 @@
         }
       ],
       "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
         {
           "name": "table_name",
           "type": "bytes"
@@ -1674,6 +1686,11 @@
       "code": 6010,
       "name": "IdColNotInColumns",
       "msg": "ID column must exist in column_names"
+    },
+    {
+      "code": 6011,
+      "name": "NameTooLong",
+      "msg": "Table name too long"
     }
   ],
   "types": [
@@ -1699,13 +1716,13 @@
             "type": "pubkey"
           },
           {
-            "name": "table_names",
+            "name": "table_seeds",
             "type": {
               "vec": "bytes"
             }
           },
           {
-            "name": "global_table_names",
+            "name": "global_table_seeds",
             "type": {
               "vec": "bytes"
             }
@@ -1733,6 +1750,10 @@
             "type": {
               "vec": "bytes"
             }
+          },
+          {
+            "name": "name",
+            "type": "bytes"
           }
         ]
       }

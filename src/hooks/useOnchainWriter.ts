@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import type { Idl } from '@coral-xyz/anchor'
 import bs58 from 'bs58'
-import { initializeRootWeb, createTableWeb, createExtTableWeb, updateTableColumnsWeb, writeRowWeb, pushDbInstructionWeb, type EditMode } from '@/lib/onchainDB'
+import { initializeRootWeb, createTableWeb, createExtTableWeb, updateTableColumnsWeb, writeRowWeb, pushDbInstructionWeb } from '@/lib/onchainDB'
 
 export type UseOnchainWriterOptions = {
   // IDL object or URL to fetch (one of them must be provided)
@@ -23,7 +23,7 @@ export type UseOnchainWriterState = {
   updateColumns: (tableName: string, columns: string[], opts?: { idColumn?: string | number; extTableName?: string | null; extKeys?: string[] }) => Promise<string | null>
   createExtTable: (tableName: string, columns: string[], opts?: { idColumn?: string | number; extKeys?: string[] }) => Promise<string | null>
   writeRow: (tableName: string, row: Record<string, any>) => Promise<string | null>
-  pushInstruction: (tableName: string, mode: EditMode, targetTxSig: string, json: Record<string, any>) => Promise<string | null>
+  pushInstruction: (tableName: string, targetTxSig: string, json: Record<string, any> | string) => Promise<string | null>
 }
 
 /**
@@ -294,7 +294,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     }
   }, [ready, idl, connection, walletCtx])
 
-  const pushInstruction = useCallback(async (tableName: string, mode: EditMode, targetTxSig: string, json: Record<string, any>) => {
+  const pushInstruction = useCallback(async (tableName: string, targetTxSig: string, json: Record<string, any> | string) => {
     if (!ready || !idl) {
       setError('Writer not ready (wallet or IDL missing)')
       return null
@@ -306,11 +306,15 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     setLoading(true)
     setError(null)
     try {
-      const r = await pushDbInstructionWeb({ connection, wallet: walletCtx as any, idl }, tableName, mode, targetTxSig, JSON.stringify(json))
+      const payload = typeof json === 'string' ? json : JSON.stringify(json)
+        console.log('payload', payload)
+      const r = await pushDbInstructionWeb({ connection, wallet: walletCtx as any, idl }, tableName, targetTxSig, payload)
+     console.log('pushInstruction', r)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
+        console.log('pushInstruction', r.tx)
       const signed = await walletCtx.signTransaction(r.tx)
 
       let sig: string

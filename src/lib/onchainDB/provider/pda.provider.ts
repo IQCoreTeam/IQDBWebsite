@@ -1,6 +1,7 @@
 // src/Lprovider/pdaprovider.ts
 import { PublicKey } from "@solana/web3.js";
 import { configs } from "../configs";
+import { deriveSeedBytes } from "../core/seed";
 
 const PROGRAM_ID = new PublicKey(configs.programId);
 
@@ -30,25 +31,27 @@ export function pdaTargetTxRef(signer: PublicKey) {
   )[0];
 }
 
-export function pdaTable(root: PublicKey, tableNameBytes: Uint8Array) {
+export function pdaTable(root: PublicKey, tableName: string) {
+  const tableSeed = deriveSeedBytes(tableName);
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from(configs.tableSeed),
       PROGRAM_ID.toBuffer(),
       root.toBuffer(),
-      Buffer.from(tableNameBytes),
+      Buffer.from(tableSeed),
     ],
     PROGRAM_ID
   )[0];
 }
 
-export function pdaInstructionTable(root: PublicKey, tableNameBytes: Uint8Array) {
+export function pdaInstructionTable(root: PublicKey, tableName: string) {
+  const tableSeed = deriveSeedBytes(tableName);
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from(configs.tableSeed),
       PROGRAM_ID.toBuffer(),
       root.toBuffer(),
-      Buffer.from(tableNameBytes),
+      Buffer.from(tableSeed),
       Buffer.from(configs.instructionSeed),
     ],
     PROGRAM_ID
@@ -61,18 +64,18 @@ export function pdaInstructionTable(root: PublicKey, tableNameBytes: Uint8Array)
  */
 export function pdaExternalRecord(
   root: PublicKey,
-  baseTableNameBytes: Uint8Array,
+  baseTableSeed: Uint8Array,
   idValueBytes: Uint8Array,
-  extTableNameBytes: Uint8Array
+  extTableSeed: Uint8Array
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from(configs.tableSeed),
       PROGRAM_ID.toBuffer(),
       root.toBuffer(),
-      Buffer.from(baseTableNameBytes),
+      Buffer.from(baseTableSeed),
       Buffer.from(idValueBytes),
-      Buffer.from(extTableNameBytes),
+      Buffer.from(extTableSeed),
     ],
     PROGRAM_ID
   )[0];
@@ -87,21 +90,24 @@ export function pdaExternalRecordFromStrings(
   idValue: string,
   extTableName: string
 ) {
+  const baseSeed = deriveSeedBytes(baseTableName);
+  const extSeed = deriveSeedBytes(extTableName);
   return pdaExternalRecord(
     root,
-    Buffer.from(baseTableName, "utf8"),
+    baseSeed,
     Buffer.from(idValue, "utf8"),
-    Buffer.from(extTableName, "utf8")
+    extSeed
   );
 }
 
-export function pdaExtTable(signer: PublicKey, tableNameBytes: Uint8Array) {
+export function pdaExtTable(root: PublicKey, tableName: string) {
+  const tableSeed = deriveSeedBytes(tableName);
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from("iqdb-ext-table"),
+      Buffer.from(configs.tableSeed),
       PROGRAM_ID.toBuffer(),
-      signer.toBuffer(),
-      Buffer.from(tableNameBytes),
+      root.toBuffer(),
+      Buffer.from(tableSeed),
     ],
     PROGRAM_ID
   )[0];

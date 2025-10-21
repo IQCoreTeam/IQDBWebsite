@@ -20,8 +20,8 @@ export function SolanaWalletProvider({
 }) {
   // Use Devnet by default (change to mainnet when needed)
   const network = WalletAdapterNetwork.Devnet
-  const endpoint = useMemo(() => clusterApiUrl(network), [network])
-
+  // const endpoint = useMemo(() => clusterApiUrl(network), [network])
+const endpoint = "https://devnet.helius-rpc.com/?api-key=fbb113ce-eeb4-4277-8c44-7153632d175a"
   // Supported wallets
   const wallets = useMemo(
     () => [
