@@ -69,7 +69,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     setError(null)
     try {
       const r = await initializeRootWeb({ connection, wallet: walletCtx as any, idl })
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
@@ -120,7 +120,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     try {
       const { idColumn, extKeys } = opts || {}
       const r = await createTableWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns, { idColumn, extKeys })
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
@@ -171,7 +171,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     try {
       const { idColumn, extKeys } = opts || {}
       const r = await updateTableColumnsWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns, { idColumn, extKeys })
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
@@ -216,7 +216,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     setError(null)
     try {
       const r = await createExtTableWeb({ connection, wallet: walletCtx as any, idl }, tableName, columns, opts)
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
@@ -262,7 +262,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
     setError(null)
     try {
       const r = await writeRowWeb({ connection, wallet: walletCtx as any, idl }, tableName, JSON.stringify(row))
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight
@@ -310,7 +310,7 @@ export function useOnchainWriter(opts: UseOnchainWriterOptions = {}): UseOnchain
         console.log('payload', payload)
       const r = await pushDbInstructionWeb({ connection, wallet: walletCtx as any, idl }, tableName, targetTxSig, payload)
      console.log('pushInstruction', r)
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       r.tx.feePayer = walletCtx.publicKey
       r.tx.recentBlockhash = blockhash
       r.tx.lastValidBlockHeight = lastValidBlockHeight

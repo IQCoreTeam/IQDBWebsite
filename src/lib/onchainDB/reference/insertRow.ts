@@ -90,9 +90,7 @@ export async function pushDbInstruction(
             //console.log(`Column '${col}' is valid for table '${tableName}'.`);
         }
     }
-    // check table for all columns in json
-    // if user submits extra columns not in table, throw error
-    for (const col of Object.keys(jsObject)) {
+     for (const col of Object.keys(jsObject)) {
         if (!columns.columns.includes(col)) {
             throw new Error(`Column '${col}' does not exist in table '${tableName}'.`);
         } else {

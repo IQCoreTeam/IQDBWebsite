@@ -24,6 +24,7 @@ import {
     TreeView,
     Checkbox,
 } from 'react95'
+import {Windows95Access} from 'react-old-icons'
 import {Connection, PublicKey} from '@solana/web3.js'
 import {BorshAccountsCoder, type Idl} from '@coral-xyz/anchor'
 import {Buffer} from 'buffer'
@@ -79,7 +80,42 @@ const Container = styled.div`
     padding: 20px;
     display: flex;
     flex-direction: column;
+    position: relative;
     box-shadow: inset 0 0 100px rgba(0, 255, 0, 0.1);
+`
+
+const DesktopShortcutButton = styled.button`
+    position: absolute;
+    top: 88px;
+    left: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #f4f4f4;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+
+    span {
+        margin-top: 4px;
+        line-height: 1.2;
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.55;
+        pointer-events: none;
+    }
+
+    &:focus-visible {
+        outline: 1px dashed #ffffff;
+        outline-offset: 2px;
+    }
 `
 
 
@@ -115,6 +151,12 @@ export default function Home() {
     // SSR guard
     const [mounted, setMounted] = useState(false)
     useEffect(() => setMounted(true), [])
+
+    const [showConsoleWindow, setShowConsoleWindow] = useState(true)
+    const handleConsoleShortcut = useCallback(() => {
+        setShowConsoleWindow(true)
+    }, [])
+    const handleConsoleClose = useCallback(() => setShowConsoleWindow(false), [])
 
     // Wallet / Hooks MUST be called on every render to keep hook order stable
     const wallet = useWallet()
@@ -1062,13 +1104,24 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
                 </Toolbar>
             </AppBar>
 
+            <DesktopShortcutButton
+                type="button"
+                onClick={handleConsoleShortcut}
+                disabled={showConsoleWindow}
+                title={showConsoleWindow ? 'Console already open' : 'Open iqdb_console.exe'}
+            >
+                <Windows95Access size={48} alt="Open iqdb console" />
+                <span>iqdb_console.exe</span>
+            </DesktopShortcutButton>
+
             {/* Main window with tabs */}
             <div style={{marginTop: 16, display: 'flex', justifyContent: 'center'}}>
-                <DraggableWindow title="[ iqdb_console.exe ]" width={1024}>
-                    <Tabs value={activeTab} onChange={onTabChange}>
-                        <Tab value={0}>write_data</Tab>
-                        <Tab value={1}>read_data</Tab>
-                    </Tabs>
+                {showConsoleWindow && (
+                    <DraggableWindow title="[ iqdb_console.exe ]" width={1024} onClose={handleConsoleClose}>
+                        <Tabs value={activeTab} onChange={onTabChange}>
+                            <Tab value={0}>write_data</Tab>
+                            <Tab value={1}>read_data</Tab>
+                        </Tabs>
 
                     <TabBody>
 
@@ -2155,7 +2208,8 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
                             </div>
                         )}
                     </TabBody>
-                </DraggableWindow>
+                    </DraggableWindow>
+                )}
             </div>
 
             {/* Add File Popup Window */}
