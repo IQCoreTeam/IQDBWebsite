@@ -14,6 +14,8 @@ import {
     Button,
     MenuList,
     MenuListItem,
+    Separator,
+    styleReset,
     Table,
     TableHead,
     TableBody,
@@ -24,7 +26,15 @@ import {
     TreeView,
     Checkbox,
 } from 'react95'
-import {Windows95Access} from 'react-old-icons'
+
+import React from 'react';
+import { createGlobalStyle, ThemeProvider } from 'styled-components';
+
+/* Pick a theme of your choice */
+import original from 'react95/dist/themes/millenium';
+
+
+import {Windows95Access, MicrosoftOffice97Msaccess2} from 'react-old-icons'
 import {Connection, PublicKey} from '@solana/web3.js'
 import {BorshAccountsCoder, type Idl} from '@coral-xyz/anchor'
 import {Buffer} from 'buffer'
@@ -43,6 +53,14 @@ type ExtDefinition = {
     id: string
     columns: string[]
 }
+
+
+const GlobalStyles = createGlobalStyle`
+  ${styleReset}
+  body, input, select, textarea {
+    font-family: 'ms_sans_serif';
+  }
+`;
 
 const tryParseExtDefinitionJson = (def: string): ExtDefinition | null => {
     const trimmed = def.trim()
@@ -76,12 +94,95 @@ const encodeExtDef = (name: string, id: string, columns: string[]) => {
 
 const Container = styled.div`
     min-height: 100vh;
-    background: #000000;
+    background: #0008ffff url('/channel-split-angel.png') center center no-repeat;
+    background-size: 700px;
     padding: 20px;
     display: flex;
     flex-direction: column;
     position: relative;
-    box-shadow: inset 0 0 100px rgba(0, 255, 0, 0.1);
+    box-shadow: inset 0 0 300px rgba(0, 255, 0, 0.1);
+    
+    /* CRT Filter Effects */
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            /* Enhanced CRT horizontal scanlines with RGB tint */
+            repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                transparent 1px,
+                rgba(0, 255, 0, 0.18) 1px,
+                rgba(0, 255, 0, 0.18) 2px,
+                rgba(255, 0, 0, 0.05) 2px,
+                rgba(0, 0, 255, 0.05) 3px,
+                rgba(0, 0, 0, 0.12) 3px,
+                rgba(0, 0, 0, 0.12) 4px
+            ),
+            /* Secondary finer lines */
+            repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                rgba(0, 255, 0, 0.05) 0.5px,
+                transparent 1px
+            );
+        animation: scanlines 0.08s linear infinite;
+        pointer-events: none;
+        z-index: 1000;
+        mix-blend-mode: screen;
+    }
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            /* Enhanced RGB phosphor lines for CRT effect */
+            repeating-linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.12) 0px,
+                rgba(255, 0, 0, 0.12) 2px,
+                rgba(0, 255, 0, 0.12) 2px,
+                rgba(0, 255, 0, 0.12) 4px,
+                rgba(0, 0, 255, 0.12) 4px,
+                rgba(0, 0, 255, 0.12) 6px,
+                rgba(0, 0, 0, 0.05) 6px,
+                rgba(0, 0, 0, 0.05) 8px
+            ),
+            /* RGB chromatic aberration overlay */
+            radial-gradient(circle at 48% 50%, rgba(255, 0, 0, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.06) 0%, transparent 40%),
+            radial-gradient(circle at 52% 50%, rgba(0, 0, 255, 0.08) 0%, transparent 40%),
+            /* Screen curvature shadow */
+            radial-gradient(ellipse at center, transparent 0%, transparent 70%, rgba(0, 0, 0, 0.3) 100%),
+            /* Screen flicker overlay */
+            linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.02), transparent);
+        pointer-events: none;
+        z-index: 999;
+        animation: flicker 0.15s ease-in-out infinite alternate;
+        mix-blend-mode: multiply;
+    }
+    
+    /* CRT screen curvature simulation */
+    border-radius: 8px;
+    overflow: hidden;
+    
+    @keyframes scanlines {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(4px); }
+    }
+    
+    @keyframes flicker {
+        0% { opacity: 1; }
+        100% { opacity: 0.98; }
+    }
 `
 
 const DesktopShortcutButton = styled.button`
@@ -1094,6 +1195,8 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
 
     return (
         <Container>
+          <GlobalStyles/>
+          <ThemeProvider theme={original}>
             {/* App bar */}
             <AppBar>
                 <Toolbar>
@@ -1110,7 +1213,7 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
                 disabled={showConsoleWindow}
                 title={showConsoleWindow ? 'Console already open' : 'Open iqdb_console.exe'}
             >
-                <Windows95Access size={48} alt="Open iqdb console" />
+                <MicrosoftOffice97Msaccess2 size={48} alt="Open iqdb console"/>
                 <span>iqdb_console.exe</span>
             </DesktopShortcutButton>
 
@@ -3177,6 +3280,7 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
                     </div>
                 </DraggableWindow>
             )}
+            </ThemeProvider>
         </Container>
     )
 }

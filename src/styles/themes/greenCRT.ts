@@ -25,7 +25,7 @@ export const greenCRT = {
   checkmarkDisabled: "#004400",
 
   // Desktop
-  desktopBackground: "#001100",
+  desktopBackground: "#0011ffff",
 
   // Flat surfaces
   flatDark: "#002200",
