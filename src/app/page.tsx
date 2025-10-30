@@ -2327,33 +2327,33 @@ const deriveExtKeyName = (def: string, fallback?: string): string => {
                     <div style={{padding: 16}}>
                         <GroupBox label="add file by codein">
                             <p>
-                                Adding file feature is comming soon
+                                Adding file feature is coming soon
                             </p>
                             {/* Progress bar */}
-                            <ProgressBar variant="tile" value={Math.floor(fileProgress)}/>
-                            <div style={{marginTop: 6, textAlign: 'right', fontSize: 12, color: '#0f0'}}>
-                                {fileProgress}%
-                            </div>
+                            {/*<ProgressBar variant="tile" value={Math.floor(fileProgress)}/>*/}
+                            {/*<div style={{marginTop: 6, textAlign: 'right', fontSize: 12, color: '#0f0'}}>*/}
+                            {/*    {fileProgress}%*/}
+                            {/*</div>*/}
 
                             <div style={{display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end'}}>
-                                <Button
-                                    onClick={() => {
-                                        // Fill existing session_pda if present; otherwise append one
-                                        // setKvRows((rows) => {
-                                        //     const idx = rows.findIndex(r => r.key.trim() === 'session_pda' || r.key.trim() === 'sessionPda')
-                                        //     if (idx >= 0) {
-                                        //         const next = rows.slice()
-                                        //         next[idx] = {...next[idx], value: 'examplesessionpda'}
-                                        //         return next
-                                        //     }
-                                        //     return [...rows, {key: 'session_pda', value: 'examplesessionpda'}]
-                                        // })
-                                        setShowAddFilePopup(false)
-                                    }}
-                                >
-                                    Done
-                                </Button>
-                                <Button onClick={() => setShowAddFilePopup(false)}>Cancel</Button>
+                                {/*<Button*/}
+                                {/*    onClick={() => {*/}
+                                {/*        // Fill existing session_pda if present; otherwise append one*/}
+                                {/*        // setKvRows((rows) => {*/}
+                                {/*        //     const idx = rows.findIndex(r => r.key.trim() === 'session_pda' || r.key.trim() === 'sessionPda')*/}
+                                {/*        //     if (idx >= 0) {*/}
+                                {/*        //         const next = rows.slice()*/}
+                                {/*        //         next[idx] = {...next[idx], value: 'examplesessionpda'}*/}
+                                {/*        //         return next*/}
+                                {/*        //     }*/}
+                                {/*        //     return [...rows, {key: 'session_pda', value: 'examplesessionpda'}]*/}
+                                {/*        // })*/}
+                                {/*        setShowAddFilePopup(false)*/}
+                                {/*    }}*/}
+                                {/*>*/}
+                                {/*    Done*/}
+                                {/*</Button>*/}
+                                <Button onClick={() => setShowAddFilePopup(false)}>Quit</Button>
                             </div>
                         </GroupBox>
                     </div>
