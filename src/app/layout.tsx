@@ -5,7 +5,7 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
     title: "IQ Labs DB",
     icons: {
-        icon: '/iq_logo.png',
+        icon: '/icon.png',
     },
     description: "IQDB provides full CRUD operations, IDs, and extension tables for constructing relational databases. A SQL like database fully hosted on the Solana Blockchain. Using IQLab's novel method for uploading data to the Solana blockchain. User's can create database schemas on Solana using only PDAs and transactions.\n",
 };
