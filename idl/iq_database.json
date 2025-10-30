@@ -1,0 +1,1787 @@
+{
+  "address": "7Vk5JJDxUBAaaAkpYQpWYCZNz4SVPm3mJFSxrBzTQuAX",
+  "metadata": {
+    "name": "iq_database",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_ext_table",
+      "discriminator": [
+        55,
+        34,
+        201,
+        171,
+        160,
+        153,
+        73,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  115,
+                  116,
+                  114,
+                  117,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_table",
+      "discriminator": [
+        214,
+        142,
+        131,
+        250,
+        242,
+        83,
+        135,
+        185
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  115,
+                  116,
+                  114,
+                  117,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "database_instruction",
+      "discriminator": [
+        114,
+        238,
+        192,
+        171,
+        84,
+        105,
+        124,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_table",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  115,
+                  116,
+                  114,
+                  117,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tx_ref",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  120,
+                  114,
+                  101,
+                  102
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_tx_ref",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  120,
+                  114,
+                  101,
+                  102
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  97,
+                  114,
+                  103,
+                  101,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "target_tx",
+          "type": "bytes"
+        },
+        {
+          "name": "content_json_tx",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "initialize_root",
+      "discriminator": [
+        215,
+        103,
+        206,
+        228,
+        186,
+        88,
+        211,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tx_ref",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  120,
+                  114,
+                  101,
+                  102
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_tx_ref",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  120,
+                  114,
+                  101,
+                  102
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  97,
+                  114,
+                  103,
+                  101,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_root_table_list",
+      "discriminator": [
+        134,
+        184,
+        121,
+        218,
+        28,
+        99,
+        159,
+        216
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_table_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_table",
+      "discriminator": [
+        224,
+        23,
+        10,
+        48,
+        181,
+        73,
+        121,
+        187
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "table",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "column_names",
+          "type": {
+            "vec": "bytes"
+          }
+        },
+        {
+          "name": "id_col",
+          "type": "bytes"
+        },
+        {
+          "name": "ext_keys",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "write_data",
+      "discriminator": [
+        211,
+        152,
+        195,
+        131,
+        83,
+        179,
+        248,
+        77
+      ],
+      "accounts": [
+        {
+          "name": "root",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  114,
+                  111,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "table",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  97,
+                  98,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "root"
+              },
+              {
+                "kind": "arg",
+                "path": "table_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tx_ref",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  113,
+                  100,
+                  98,
+                  45,
+                  116,
+                  120,
+                  114,
+                  101,
+                  102
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  96,
+                  131,
+                  22,
+                  152,
+                  63,
+                  80,
+                  151,
+                  20,
+                  81,
+                  195,
+                  185,
+                  153,
+                  131,
+                  182,
+                  220,
+                  30,
+                  206,
+                  37,
+                  57,
+                  59,
+                  133,
+                  61,
+                  1,
+                  98,
+                  182,
+                  21,
+                  30,
+                  155,
+                  67,
+                  108,
+                  237,
+                  80
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "table_seed",
+          "type": "bytes"
+        },
+        {
+          "name": "table_name",
+          "type": "bytes"
+        },
+        {
+          "name": "row_json_tx",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "InstructionTable",
+      "discriminator": [
+        97,
+        60,
+        187,
+        146,
+        76,
+        184,
+        212,
+        245
+      ]
+    },
+    {
+      "name": "Root",
+      "discriminator": [
+        46,
+        159,
+        131,
+        37,
+        245,
+        84,
+        5,
+        9
+      ]
+    },
+    {
+      "name": "Table",
+      "discriminator": [
+        34,
+        100,
+        138,
+        97,
+        236,
+        129,
+        230,
+        112
+      ]
+    },
+    {
+      "name": "TxRef",
+      "discriminator": [
+        111,
+        198,
+        216,
+        33,
+        153,
+        111,
+        184,
+        56
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6001,
+      "name": "EmptyName",
+      "msg": "Name cannot be empty"
+    },
+    {
+      "code": 6002,
+      "name": "EmptyColumns",
+      "msg": "At least one column is required"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidUtf8",
+      "msg": "UTF-8 invalid"
+    },
+    {
+      "code": 6004,
+      "name": "TableExists",
+      "msg": "Table already exists"
+    },
+    {
+      "code": 6005,
+      "name": "NeedsRealloc",
+      "msg": "Reallocation needed; not performed"
+    },
+    {
+      "code": 6006,
+      "name": "SchemaMismatch",
+      "msg": "Row schema mismatch"
+    },
+    {
+      "code": 6007,
+      "name": "TxTooLong",
+      "msg": "Tx id too long"
+    },
+    {
+      "code": 6008,
+      "name": "Overflow",
+      "msg": "Overflow"
+    },
+    {
+      "code": 6009,
+      "name": "EmptyIdCol",
+      "msg": "ID column is required"
+    },
+    {
+      "code": 6010,
+      "name": "IdColNotInColumns",
+      "msg": "ID column must exist in column_names"
+    },
+    {
+      "code": 6011,
+      "name": "NameTooLong",
+      "msg": "Table name too long"
+    }
+  ],
+  "types": [
+    {
+      "name": "InstructionTable",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Root",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "table_seeds",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "global_table_seeds",
+            "type": {
+              "vec": "bytes"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Table",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "column_names",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "id_col",
+            "type": "bytes"
+          },
+          {
+            "name": "ext_keys",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "name",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TxRef",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "seq",
+            "type": "u64"
+          },
+          {
+            "name": "last_tx",
+            "type": "bytes"
+          },
+          {
+            "name": "rolling",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
