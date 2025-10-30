@@ -1,15 +1,10 @@
 self.__BUILD_MANIFEST = {
   "/_error": [
-    "./static/chunks/1d1fe21cf90bcd4b.js"
+    "./static/chunks/4a40d65a7d300e0f.js"
   ],
   "__rewrites": {
     "afterFiles": [],
-    "beforeFiles": [
-      {
-        "source": "/IQDBWebsite//_next/:path+",
-        "destination": "/IQDBWebsite/_next/:path+"
-      }
-    ],
+    "beforeFiles": [],
     "fallback": []
   },
   "sortedPages": [
