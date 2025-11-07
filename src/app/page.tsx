@@ -94,7 +94,7 @@ const encodeExtDef = (name: string, id: string, columns: string[]) => {
 
 const Container = styled.div`
     min-height: 100vh;
-    background: #0008ffff url('/channel-split-angel.png') center center no-repeat;
+    background: #0008ffff url('/db_angel.png') center center no-repeat;
     background-size: 700px;
     padding: 20px;
     display: flex;
